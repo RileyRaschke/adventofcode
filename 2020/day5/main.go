@@ -7,6 +7,7 @@ import (
     "strings"
     "fmt"
     "math"
+    "sort"
 )
 
 func SeatDecode(s string) (row, col, id int){
@@ -40,6 +41,7 @@ func IntPow(x,y int) int {
 func main() {
     fmt.Println("Finding highest seat number...")
     reader := bufio.NewReader(os.Stdin)
+    seatsTaken := []int{}
     var maxId int
     for {
         str, _, err := reader.ReadLine()
@@ -48,10 +50,20 @@ func main() {
         }
         line := strings.TrimSpace(string(str))
         _,_,id := SeatDecode(line)
+        seatsTaken = append(seatsTaken, id)
         if id > maxId {
             maxId = id
         }
     }
+    sort.Ints(seatsTaken)
+    var mySeat int
+    for i := 1; i < len(seatsTaken); i++ {
+        if seatsTaken[i-1] != seatsTaken[i]-1{
+            mySeat = seatsTaken[i]-1
+        }
+    }
+    fmt.Printf("SeatList %v\n", seatsTaken)
+    fmt.Printf("mySeat: %v\n", mySeat)
     fmt.Printf("Highest seat number: %v\n", maxId)
 }
 
