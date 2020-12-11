@@ -26,6 +26,7 @@ func(x InstructionOp) String() string {
 type Instruction struct {
     op InstructionOp
     evalCount int
+    triedEdit bool
 }
 func(x Instruction) String() string { return fmt.Sprintf("%v evaled: %v", x.op.String(), x.evalCount ) }
 
@@ -54,8 +55,10 @@ func (self *Parser) popStack() {
 
 // process the next instruction
 func (self *Parser) next() {
-    fmt.Printf("%+v accumulation: %v\n",self.code[self.i], self.accumulation)
-    fmt.Printf("%v\n",self.opStack)
+    fmt.Printf("line: %v op: %v\n", self.i, self.code[self.i].op)
+    //fmt.Printf("line: %v\n", self.i)
+    //fmt.Printf("%+v accumulation: %v line: %v\n",self.code[self.i], self.accumulation, self.i)
+    //fmt.Printf("%v\n",self.opStack)
     self.opStack = append(self.opStack, self.i)
     switch op := self.code[self.i].op.operation; op {
         case "jmp":
@@ -75,7 +78,8 @@ func (self *Parser) next() {
 func (self *Parser) edit() bool {
     switch op := self.code[self.i].op.operation; op {
         case "nop":
-            if self.code[self.i].op.arg != 0 {
+            if self.code[self.i].op.arg != 0 && ! self.code[self.i].triedEdit {
+                self.code[self.i].triedEdit = true
                 self.code[self.i].op.oldOp = "nop"
                 self.code[self.i].op.operation = "jmp"
                 self.errOpIndex = self.i
@@ -84,10 +88,15 @@ func (self *Parser) edit() bool {
                 return false
             }
         case "jmp":
-            self.code[self.i].op.oldOp = "jmp"
-            self.code[self.i].op.operation = "nop"
-            self.errOpIndex = self.i
-            return true
+            if ! self.code[self.i].triedEdit {
+                self.code[self.i].triedEdit = true
+                self.code[self.i].op.oldOp = "jmp"
+                self.code[self.i].op.operation = "nop"
+                self.errOpIndex = self.i
+                return true
+            } else {
+                return false
+            }
         case "acc":
             return false
     }
@@ -141,7 +150,7 @@ func (self *Parser) AddStringOp(operation string) {
     instr := opts[0]
     arg, err := strconv.Atoi(opts[1])
     if err != nil { panic("Invalid input") }
-    self.code = append(self.code, Instruction{ InstructionOp{ instr, arg, "" }, 0 } )
+    self.code = append(self.code, Instruction{ InstructionOp{ instr, arg, "" }, 0, false } )
 }
 
 func main() {
