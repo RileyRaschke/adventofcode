@@ -31,12 +31,14 @@ func(x Instruction) String() string { return fmt.Sprintf("%v evaled: %v", x.op.S
 
 type Parser struct {
     code []Instruction
+    opStack []int
     i int
     errOpIndex int
     accumulation int
-    opStack []int
+    FirstErr int
+    FirstAccum int
 }
-func NewParser() *Parser { return &Parser{ []Instruction{}, 0, -1, 0, []int{} } }
+func NewParser() *Parser { return &Parser{ []Instruction{}, []int{}, 0, -1, 0, -1, -1 } }
 
 func (self *Parser) popStack() {
     // backtrack accumulations and operation edits
@@ -54,18 +56,16 @@ func (self *Parser) popStack() {
 func (self *Parser) next() {
     fmt.Printf("%+v accumulation: %v\n",self.code[self.i], self.accumulation)
     fmt.Printf("%v\n",self.opStack)
+    self.opStack = append(self.opStack, self.i)
     switch op := self.code[self.i].op.operation; op {
-        case "nop":
-            self.opStack = append(self.opStack, self.i)
-            self.i++
-            break
         case "jmp":
-            self.opStack = append(self.opStack, self.i)
             self.i = self.i + self.code[self.i].op.arg
+            break
+        case "nop":
+            self.i++
             break
         case "acc":
             self.accumulation = self.accumulation + self.code[self.i].op.arg
-            self.opStack = append(self.opStack, self.i)
             self.i++
             break
     }
@@ -94,6 +94,14 @@ func (self *Parser) edit() bool {
     return false
 }
 
+func (self *Parser) StashFirstErr() {
+    if self.FirstErr < 0 {
+        // instruction before the repeat eval? not part of puzzle but cool
+        self.FirstErr = self.opStack[len(self.opStack)-1]
+        self.FirstAccum = self.accumulation
+    }
+}
+
 func (self *Parser) Parse() ( bool, int, int) {
     for {
         if self.i >= len( self.code ) { break }
@@ -101,6 +109,7 @@ func (self *Parser) Parse() ( bool, int, int) {
         self.code[self.i].evalCount++
 
         if self.code[self.i].evalCount > 1 {
+            self.StashFirstErr()
             // errored.. go up the stack
             if self.errOpIndex >= 0 {
                 // had a prior instruction edit, go back further up the stack than the last one
@@ -147,7 +156,8 @@ func main() {
     }
 
     if ok, errLine, accum := parser.Parse(); ok {
-        fmt.Printf("Found error on line %v with accumulation of: %v\n", errLine, accum )
+        fmt.Printf("First error found on line %v to with accumulation of: %v\n", parser.FirstErr, parser.FirstAccum )
+        fmt.Printf("Corrected error on line %v to complete boot with accumulation of: %v\n", errLine, accum )
     } else {
         fmt.Printf("Unknown error\n")
     }
