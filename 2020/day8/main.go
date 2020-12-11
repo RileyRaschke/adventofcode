@@ -76,27 +76,25 @@ func (self *Parser) next() {
 
 // if we can edit the current instruction edit and return true, else false
 func (self *Parser) edit() bool {
+    // Been edited before without success.. don't edit again..
+    if self.code[self.i].triedEdit {
+        return false
+    }
     switch op := self.code[self.i].op.operation; op {
         case "nop":
-            if self.code[self.i].op.arg != 0 && ! self.code[self.i].triedEdit {
+            if self.code[self.i].op.arg != 0 {
                 self.code[self.i].triedEdit = true
                 self.code[self.i].op.oldOp = "nop"
                 self.code[self.i].op.operation = "jmp"
                 self.errOpIndex = self.i
                 return true
-            } else {
-                return false
             }
         case "jmp":
-            if ! self.code[self.i].triedEdit {
-                self.code[self.i].triedEdit = true
-                self.code[self.i].op.oldOp = "jmp"
-                self.code[self.i].op.operation = "nop"
-                self.errOpIndex = self.i
-                return true
-            } else {
-                return false
-            }
+            self.code[self.i].triedEdit = true
+            self.code[self.i].op.oldOp = "jmp"
+            self.code[self.i].op.operation = "nop"
+            self.errOpIndex = self.i
+            return true
         case "acc":
             return false
     }
