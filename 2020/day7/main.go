@@ -21,6 +21,7 @@ func main() {
     }
     //rs.DumpRules() // SUPER SLOW
     fmt.Printf("Part 1 - shiny gold bag combos: %v\n", rs.CountOptions("shiny gold"))
+    fmt.Printf("Part 2 - shiny gold must contain: %v bags\n", rs.CountRequiredContents("shiny gold"))
 }
 
 type BagRule struct  {
@@ -41,6 +42,13 @@ func NewRuleSearch() *RuleSearch {
 func (self *BagRule) AddAllowedContent(br *BagRule, cnt int) {
     self.contains[br] = cnt
 }
+func (self *BagRule) InnerBagCount() (res int) {
+    for innerBr, multiple := range self.contains {
+        res += multiple
+        res += multiple*innerBr.InnerBagCount()
+    }
+    return res
+}
 
 func (self *BagRule) CanContain(color string) bool {
     for innerBr, _ := range self.contains {
@@ -58,6 +66,10 @@ func (self *RuleSearch) CountOptions(color string) (res int) {
         }
     }
     return
+}
+
+func (self *RuleSearch) CountRequiredContents(color string) (res int) {
+    return self.bagMap[color].InnerBagCount()
 }
 
 func (self *RuleSearch) AddRuleText(str string) {
