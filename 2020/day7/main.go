@@ -9,16 +9,36 @@ import (
     "strconv"
 )
 
+func main() {
+    reader := bufio.NewReader(os.Stdin)
+    rs := NewRuleSearch()
+    for {
+        str, _, err := reader.ReadLine()
+        if err == io.EOF { break }
+        line := strings.TrimSpace(string(str))
+        if line == "" { break }
+        rs.AddRuleText(line)
+    }
+    //rs.DumpRules() // SUPER SLOW
+    fmt.Printf("Part 1 - shiny gold bag combos: %v\n", rs.CountOptions("shiny gold"))
+}
+
 type BagRule struct  {
     color string
     contains map[*BagRule]int
 }
 func NewBagRule(color string) (*BagRule) {
-    br := &BagRule{color: color, contains: make(map[*BagRule]int)}
-    return br
+    return &BagRule{color: color, contains: make(map[*BagRule]int)}
 }
+
+type RuleSearch struct {
+    bagMap map[string]*BagRule
+}
+func NewRuleSearch() *RuleSearch {
+    return &RuleSearch{ bagMap: make(map[string]*BagRule) }
+}
+
 func (self *BagRule) AddAllowedContent(br *BagRule, cnt int) {
-    fmt.Printf("Adding %v with count: %v\n", br.color, cnt)
     self.contains[br] = cnt
 }
 
@@ -29,15 +49,6 @@ func (self *BagRule) CanContain(color string) bool {
         }
     }
     return false
-}
-
-type RuleSearch struct {
-    bagMap map[string]*BagRule
-}
-func NewRuleSearch() *RuleSearch {
-    return &RuleSearch{
-        bagMap: make(map[string]*BagRule),
-    }
 }
 
 func (self *RuleSearch) AddRuleText(str string) {
@@ -87,7 +98,6 @@ func (self *RuleSearch) DumpRules() {
 }
 
 func (self *RuleSearch) CountOptions(color string) (res int) {
-    fmt.Println()
     for _, colorRule := range self.bagMap {
         if colorRule.CanContain( color ) {
             res++
@@ -96,20 +106,9 @@ func (self *RuleSearch) CountOptions(color string) (res int) {
     return
 }
 
-func main() {
-    reader := bufio.NewReader(os.Stdin)
-    rs := NewRuleSearch()
-    for {
-        str, _, err := reader.ReadLine()
-        if err == io.EOF { break }
-        line := strings.TrimSpace(string(str))
-        if line == "" { break }
-        rs.AddRuleText(line)
-    }
-    rs.DumpRules() // SUPER SLOW
-    fmt.Printf("Part 1 - shiny gold bag combos: %v\n", rs.CountOptions("shiny gold"))
-}
-
+/*
+* Utils
+*/
 func (self *BagRule) String() string {
     return self.Padded("")
 }
