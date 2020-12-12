@@ -51,6 +51,15 @@ func (self *BagRule) CanContain(color string) bool {
     return false
 }
 
+func (self *RuleSearch) CountOptions(color string) (res int) {
+    for _, colorRule := range self.bagMap {
+        if colorRule.CanContain( color ) {
+            res++
+        }
+    }
+    return
+}
+
 func (self *RuleSearch) AddRuleText(str string) {
     fmt.Printf("\n%v\n",str)
 
@@ -91,27 +100,20 @@ func (self *RuleSearch) AddRuleText(str string) {
         self.bagMap[color].AddAllowedContent( self.bagMap[canConColor], canConCount )
     }
 }
+
+/*
+* Utils
+*/
 func (self *RuleSearch) DumpRules() {
     for _, colorRule := range self.bagMap {
         fmt.Printf("%v\n\n", colorRule)
     }
 }
 
-func (self *RuleSearch) CountOptions(color string) (res int) {
-    for _, colorRule := range self.bagMap {
-        if colorRule.CanContain( color ) {
-            res++
-        }
-    }
-    return
-}
-
-/*
-* Utils
-*/
 func (self *BagRule) String() string {
     return self.Padded("")
 }
+
 func (self *BagRule) Padded(pad string) string {
     if len(self.contains) == 0 {
         return self.color + " => ()"
