@@ -96,7 +96,7 @@ func BuildGraph(g *simple.DirectedGraph, adapters []int) {
 func EvalPossibleConnections( g *simple.DirectedGraph ) int64 {
 
     sortedNodeIds := SortedNodeIds( g )
-    perms = 1
+    perms   := int64(1)
     edgeSum := int64(0)
 
     for _, nodeId := range sortedNodeIds {
