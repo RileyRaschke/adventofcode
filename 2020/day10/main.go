@@ -137,78 +137,50 @@ func SortedNodeIds( g graph.Graph ) []int64 {
 
 /**
 * v1 stuff.. I was getting super close on my own..
+* v1 was nasty.. this is pretty clean after learning solution with graphs and a hint
 */
-type adptSet struct {
-    set []int
+type adapterSet struct {
+    from int
+    to int
 }
-
-func (x adptSet) String() string {
-    return fmt.Sprintf("(%v,%v)", x.set[0],x.set[1])
-}
-func (x adptSet) First() int {
-    return x.set[0]
-}
-func (x adptSet) Second() int {
-    return x.set[1]
+func (x adapterSet) String() string {
+    return fmt.Sprintf("(%v,%v)", x.from, x.to)
 }
 
 func Part2_v1(adapters []int) (perms int64){
-    var sets int64
-    var requiredSets int64
-    aSets := []adptSet{};
+
+    setMap := make(map[int][]adapterSet)
+
     for i:=0; i < len(adapters)-1; i++ {
-        var forwardSets = 0
         for j:=i+1; j < i+4 && j<len(adapters); j++ {
-            diff := adapters[j] - adapters[i]
-            if diff < 4 {
-                aSets = append(aSets, adptSet{[]int{adapters[i],adapters[j]}})
-                sets++
-                forwardSets++
+            from := adapters[i]
+            to   := adapters[j]
+            diff := to-from
+            if( diff < 4 ){
+                if _, ok := setMap[from]; !ok {
+                    setMap[from] = []adapterSet{ adapterSet{from, to} }
+                } else {
+                    setMap[from] = append( setMap[from], adapterSet{from, to} )
+                }
             }
         }
-        if forwardSets == 1 {
-            requiredSets++
-        }
     }
-    //fmt.Printf("len=%v - %v\n", len(aSets), aSets)
-    //fmt.Printf("Found %v sets; %v sets are required out of %v total adapters\n", sets, requiredSets, len(adapters))
+    sortedKeys := []int{}
+    for k, _ := range setMap {
+        sortedKeys = append(sortedKeys, k)
+    }
+    sort.Ints(sortedKeys)
 
-    adaptOpts := make(map[int][]adptSet)
-    var tmp int
-    for i := 0; i < len(aSets)-1; i++{
-        if tmp != aSets[i].First() {
-            tmp = aSets[i].First()
-        }
-        if _,ok := adaptOpts[tmp]; ok {
-            adaptOpts[tmp] = append(adaptOpts[tmp], aSets[i])
-        } else {
-            adaptOpts[tmp] = []adptSet{aSets[i]}
-        }
-    }
-    fmt.Println()
-    keys := []int{}
-    for k, _ := range adaptOpts {
-        keys = append(keys, k)
-    }
-    sort.Ints(keys)
-    /*
-    for _, key := range keys {
-        setLen := len(adaptOpts[key])
-        fmt.Printf("(%d) %2d - %v\n", setLen, key, adaptOpts[key])
-        if setLen > 1 {
-            perms += int64(setLen)
-        }
-    }
-    */
-    perms = CalcPerms( keys, adaptOpts )
+    perms = CalcPerms( sortedKeys, setMap )
     return perms
 }
 
-func CalcPerms( sortedKeys []int, setMap map[int][]adptSet) (perms int64){
+func CalcPerms( sortedKeys []int, setMap map[int][]adapterSet) (perms int64){
     perms = 1
     setPerms := int64(0)
     for _, key := range sortedKeys {
         setLen := len(setMap[key])
+        //fmt.Printf("(%d) %2d - %v\n", setLen, key, setMap[key])
         if setLen != 1 {
             setPerms += int64(setLen)
         } else {
