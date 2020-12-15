@@ -180,7 +180,7 @@ func CalcPerms( sortedKeys []int, setMap map[int][]adapterSet) (perms int64){
     setPerms := int64(0)
     for _, key := range sortedKeys {
         setLen := len(setMap[key])
-        //fmt.Printf("(%d) %2d - %v\n", setLen, key, setMap[key])
+        fmt.Printf("(%d) %2d - %v\n", setLen, key, setMap[key])
         if setLen != 1 {
             setPerms += int64(setLen)
         } else {
