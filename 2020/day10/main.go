@@ -42,7 +42,7 @@ func main() {
     start := time.Now()
     permutations := Part2_v1(adapters)
     rt := time.Since(start)
-    fmt.Println()
+
     fmt.Printf("\n\tv1 Set   %15d permutations in %v\n", permutations, rt)
 
     start = time.Now()
@@ -138,7 +138,7 @@ func SortedNodeIds( g graph.Graph ) []int64 {
 }
 
 /**
-* Old Stuff.. I was getting super close on my own..
+* v1 stuff.. I was getting super close on my own..
 */
 type adptSet struct {
     set []int
@@ -201,56 +201,27 @@ func Part2_v1(adapters []int) (perms int64){
             perms += int64(setLen)
         }
     }
-    //diffMap := make(map[int]int)
-    //for _, key := range keys {
-        //setLen := len(adaptOpts[key])
-    //}
     perms = CalcPerms( 0, keys, adaptOpts )
     return perms
 }
 
 func CalcPerms( start int, sortedKeys []int, setMap map[int][]adptSet) (perms int64){
     perms = 1
+    setPerms := int64(0)
     for _, key := range sortedKeys {
         setLen := len(setMap[key])
-        for _, set := range setMap[key] {
-            if next, ok := setMap[set.Second()]; ok {
-                if len(next) == 1 {
-                    perms += int64(setLen)
-                }
-                if( len(next) == 3 ){
-                    //perms *= int64(len(next)-1)
-                    perms *= int64(len(next)-setLen)
-                }
-                if( setLen == 3 && len(next) == 3 ){
-                    perms *= int64(len(next))
-                }
-                /*
-                if setLen > len(next) {
-                    //perms *= (factorial(setLen)-factorial(len(next)))
-                    perms += (factorial(setLen)-factorial(len(next)))/(factorial(len(next))*int64(setLen-len(next)))
-                }
-                */
-                /*
-                if( setLen == 3  && len(next) == 3 ){
-                    perms *= 3
-                }
-                if( setLen == 3  && len(next) == 2 ){
+        if setLen != 1 {
+            setPerms += int64(setLen)
+        } else {
+            if setPerms > 1 {
+                if setPerms == 2 {
                     perms *= 2
+                } else {
+                    perms *= (setPerms-1)
                 }
-                */
+                setPerms = 0
             }
         }
-    }
-    return
-}
-
-func factorial( x int ) (r int64) {
-    r=1
-    for {
-        if x < 2 { break }
-        r *= int64(x)
-        x--
     }
     return
 }
