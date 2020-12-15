@@ -66,57 +66,64 @@ func p1(adapters []int) (map[int]int){
 }
 
 func Part2(adapters []int) (perms int64){
-    nMap := make(map[int]graph.Node)
+
     g := simple.NewDirectedGraph()
 
     for i:=0; i < len(adapters); i++ {
         for j:=i+1; j < i+4 && j<len(adapters); j++ {
-            from := adapters[i]
-            to   := adapters[j]
+            from := int64(adapters[i])
+            to   := int64(adapters[j])
             diff := to-from
             if( diff < 4 ){
-                if _, ok := nMap[from]; !ok {
-                    nMap[from] = g.NewNode()
-                    g.AddNode(nMap[from])
+                frNode := g.Node(from)
+                toNode := g.Node(to)
+                if frNode == nil {
+                    frNode = simple.Node(from)
+                    g.AddNode(frNode)
                 }
-                if _, ok := nMap[to]; !ok {
-                    nMap[to] = g.NewNode()
-                    g.AddNode(nMap[to])
+                if toNode == nil {
+                    toNode = simple.Node(to)
+                    g.AddNode(toNode)
                 }
-                //if ! g.HadEdgeFromTo(nMap[from], nMap[to]){}
-                g.SetEdge( g.NewEdge(nMap[from], nMap[to]) )
+                g.SetEdge( g.NewEdge(frNode, toNode) )
             }
         }
     }
 
-    sortedNodeKeys := []int{}
-    for key, _ := range nMap {
-        sortedNodeKeys = append(sortedNodeKeys, key)
+    sortedNodeIds := []int64{}
+    for _, node := range graph.NodesOf(g.Nodes()) {
+        sortedNodeIds = append(sortedNodeIds, node.ID())
     }
-    sort.Ints(sortedNodeKeys)
+    sort.Slice(sortedNodeIds, func(i,j int) bool { return sortedNodeIds[i] < sortedNodeIds[j] } )
 
     perms = 1
     eCount := int64(1)
     distinctEdgeTracker := make(map[string]bool)
-    for _, key := range sortedNodeKeys {
-        node := nMap[key]
-        childNodes := graph.NodesOf(g.From(node.ID()))
+
+    for _, nodeId := range sortedNodeIds {
+
+        childNodes := graph.NodesOf(g.From(nodeId))
         edgeCount := len(childNodes)
-        fmt.Printf("%v - %v - %v \n", key, node, edgeCount)
-        if( edgeCount != 1 ){
+        fmt.Printf("%v - %v \n", nodeId, edgeCount)
+
+        if edgeCount != 1 {
+
             for _, cn := range childNodes {
-                strRep := fmt.Sprintf("(%v-%v)", node.ID(), cn.ID() )
+                strRep := fmt.Sprintf("(%v-%v)", nodeId, cn.ID() )
                 if _, ok := distinctEdgeTracker[strRep]; !ok {
                     distinctEdgeTracker[strRep] = true
                 }
             }
             eCount += int64(edgeCount)
+
         } else if len(distinctEdgeTracker) > 1 {
+
             if len(distinctEdgeTracker) == 2 {
                 perms *= int64(len(distinctEdgeTracker))
             } else {
                 perms *= int64(len(distinctEdgeTracker)-1)
             }
+
             distinctEdgeTracker = make(map[string]bool)
         }
     }
