@@ -30,7 +30,7 @@ func main() {
     // Add the device
     adapters = append(adapters, adapters[len(adapters)-1]+3)
 
-    p1_tracker := p1(adapters)
+    p1_tracker := Part1(adapters)
     fmt.Printf("Part1:\n\t1-jolt diff: %v\n\t3-jolt diff: %v\n\tmultiple: %v\n", p1_tracker[1], p1_tracker[3], p1_tracker[1]*p1_tracker[3])
 
     for key, val := range p1_tracker {
@@ -44,9 +44,8 @@ func main() {
     fmt.Printf("\n%v permutations\n", permutations)
 }
 
-func p1(adapters []int) (map[int]int){
+func Part1(adapters []int) (map[int]int) {
     tracker := make(map[int]int)
-    // p1 - brute with mini optimization
     for i:=0; i < len(adapters); i++ {
         for j:=i+1; j < i+4 && j<len(adapters); j++ {
             diff := adapters[j] - adapters[i]
@@ -65,11 +64,14 @@ func p1(adapters []int) (map[int]int){
     return tracker
 }
 
-func Part2(adapters []int) (perms int64){
-
+func Part2(adapters []int) (int64) {
     g := simple.NewDirectedGraph()
+    BuildGraph(g, adapters)
+    return EvalPossibleConnections( g )
+}
 
-    for i:=0; i < len(adapters); i++ {
+func BuildGraph(g *simple.DirectedGraph, adapters []int) {
+    for i:=0; i < len(adapters)-1; i++ {
         for j:=i+1; j < i+4 && j<len(adapters); j++ {
             from := int64(adapters[i])
             to   := int64(adapters[j])
@@ -89,45 +91,42 @@ func Part2(adapters []int) (perms int64){
             }
         }
     }
+}
 
-    sortedNodeIds := []int64{}
-    for _, node := range graph.NodesOf(g.Nodes()) {
-        sortedNodeIds = append(sortedNodeIds, node.ID())
-    }
-    sort.Slice(sortedNodeIds, func(i,j int) bool { return sortedNodeIds[i] < sortedNodeIds[j] } )
+func EvalPossibleConnections( g *simple.DirectedGraph ) int64 {
 
+    sortedNodeIds := SortedNodeIds( g )
     perms = 1
-    eCount := int64(1)
-    distinctEdgeTracker := make(map[string]bool)
+    edgeSum := int64(0)
 
     for _, nodeId := range sortedNodeIds {
 
         childNodes := graph.NodesOf(g.From(nodeId))
-        edgeCount := len(childNodes)
-        fmt.Printf("%v - %v \n", nodeId, edgeCount)
+        edgedgeSum := len(childNodes)
 
-        if edgeCount != 1 {
+        if edgedgeSum != 1 {
+            edgeSum += int64(edgedgeSum)
+        } else if edgeSum > 1 {
 
-            for _, cn := range childNodes {
-                strRep := fmt.Sprintf("(%v-%v)", nodeId, cn.ID() )
-                if _, ok := distinctEdgeTracker[strRep]; !ok {
-                    distinctEdgeTracker[strRep] = true
-                }
-            }
-            eCount += int64(edgeCount)
-
-        } else if len(distinctEdgeTracker) > 1 {
-
-            if len(distinctEdgeTracker) == 2 {
-                perms *= int64(len(distinctEdgeTracker))
+            if edgeSum == 2 {
+                perms *= edgeSum
             } else {
-                perms *= int64(len(distinctEdgeTracker)-1)
+                perms *= (edgeSum-1)
             }
+            edgeSum = 0
 
-            distinctEdgeTracker = make(map[string]bool)
         }
     }
     return perms
+}
+
+func SortedNodeIds( g graph.Graph ) []int64 {
+    sortedNodeIds := []int64{}
+    for _, node := range graph.NodesOf( g.Nodes() ) {
+        sortedNodeIds = append(sortedNodeIds, node.ID())
+    }
+    sort.Slice(sortedNodeIds, func(i,j int) bool { return sortedNodeIds[i] < sortedNodeIds[j] } )
+    return sortedNodeIds
 }
 
 /**
