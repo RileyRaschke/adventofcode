@@ -34,9 +34,7 @@ func main() {
     p1_tracker := Part1(adapters)
     fmt.Printf("Part1:\n\t1-jolt diff: %v\n\t3-jolt diff: %v\n\tmultiple: %v\n", p1_tracker[1], p1_tracker[3], p1_tracker[1]*p1_tracker[3])
 
-    for key, val := range p1_tracker {
-        fmt.Printf("%v - %v\n", key, val)
-    }
+
     fmt.Print("\nPart2:\n")
 
     start := time.Now()
@@ -172,8 +170,8 @@ func Part2_v1(adapters []int) (perms int64){
             requiredSets++
         }
     }
-    fmt.Printf("len=%v - %v\n", len(aSets), aSets)
-    fmt.Printf("Found %v sets; %v sets are required out of %v total adapters\n", sets, requiredSets, len(adapters))
+    //fmt.Printf("len=%v - %v\n", len(aSets), aSets)
+    //fmt.Printf("Found %v sets; %v sets are required out of %v total adapters\n", sets, requiredSets, len(adapters))
 
     adaptOpts := make(map[int][]adptSet)
     var tmp int
@@ -188,12 +186,12 @@ func Part2_v1(adapters []int) (perms int64){
         }
     }
     fmt.Println()
-    perms = 1
     keys := []int{}
     for k, _ := range adaptOpts {
         keys = append(keys, k)
     }
     sort.Ints(keys)
+    /*
     for _, key := range keys {
         setLen := len(adaptOpts[key])
         fmt.Printf("(%d) %2d - %v\n", setLen, key, adaptOpts[key])
@@ -201,11 +199,12 @@ func Part2_v1(adapters []int) (perms int64){
             perms += int64(setLen)
         }
     }
-    perms = CalcPerms( 0, keys, adaptOpts )
+    */
+    perms = CalcPerms( keys, adaptOpts )
     return perms
 }
 
-func CalcPerms( start int, sortedKeys []int, setMap map[int][]adptSet) (perms int64){
+func CalcPerms( sortedKeys []int, setMap map[int][]adptSet) (perms int64){
     perms = 1
     setPerms := int64(0)
     for _, key := range sortedKeys {
