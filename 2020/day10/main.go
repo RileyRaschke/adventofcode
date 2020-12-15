@@ -10,6 +10,7 @@ import (
     "sort"
     "gonum.org/v1/gonum/graph"
     "gonum.org/v1/gonum/graph/simple"
+    "time"
     //"gonum.org/v1/gonum/graph/path"
 )
 
@@ -36,12 +37,19 @@ func main() {
     for key, val := range p1_tracker {
         fmt.Printf("%v - %v\n", key, val)
     }
-
     fmt.Print("\nPart2:\n")
-    p2_permutations(adapters)
+
+    start := time.Now()
+    permutations := Part2_v1(adapters)
+    rt := time.Since(start)
     fmt.Println()
-    permutations := Part2(adapters)
-    fmt.Printf("\n%v permutations\n", permutations)
+    fmt.Printf("\n\tv1 Set   %15d permutations in %v\n", permutations, rt)
+
+    start = time.Now()
+    permutations_graph := Part2_v2(adapters)
+    rt = time.Since(start)
+
+    fmt.Printf("\n\tv2 Graph %15d permutations in %v\n\n", permutations_graph, rt)
 }
 
 func Part1(adapters []int) (map[int]int) {
@@ -64,7 +72,7 @@ func Part1(adapters []int) (map[int]int) {
     return tracker
 }
 
-func Part2(adapters []int) (int64) {
+func Part2_v2(adapters []int) (int64) {
     g := simple.NewDirectedGraph()
     BuildGraph(g, adapters)
     return EvalPossibleConnections( g )
@@ -146,7 +154,7 @@ func (x adptSet) Second() int {
     return x.set[1]
 }
 
-func p2_permutations(adapters []int) (perms int64){
+func Part2_v1(adapters []int) (perms int64){
     var sets int64
     var requiredSets int64
     aSets := []adptSet{};
