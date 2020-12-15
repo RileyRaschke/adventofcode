@@ -8,7 +8,9 @@ import (
     "strings"
     "strconv"
     "sort"
-    //"math"
+    "gonum.org/v1/gonum/graph"
+    "gonum.org/v1/gonum/graph/simple"
+    //"gonum.org/v1/gonum/graph/path"
 )
 
 func main() {
@@ -36,7 +38,9 @@ func main() {
     }
 
     fmt.Print("\nPart2:\n")
-    permutations := p2_permutations(adapters)
+    p2_permutations(adapters)
+    fmt.Println()
+    permutations := Part2(adapters)
     fmt.Printf("\n%v permutations\n", permutations)
 }
 
@@ -61,6 +65,67 @@ func p1(adapters []int) (map[int]int){
     return tracker
 }
 
+func Part2(adapters []int) (perms int64){
+    nMap := make(map[int]graph.Node)
+    g := simple.NewDirectedGraph()
+
+    for i:=0; i < len(adapters); i++ {
+        for j:=i+1; j < i+4 && j<len(adapters); j++ {
+            from := adapters[i]
+            to   := adapters[j]
+            diff := to-from
+            if( diff < 4 ){
+                if _, ok := nMap[from]; !ok {
+                    nMap[from] = g.NewNode()
+                    g.AddNode(nMap[from])
+                }
+                if _, ok := nMap[to]; !ok {
+                    nMap[to] = g.NewNode()
+                    g.AddNode(nMap[to])
+                }
+                //if ! g.HadEdgeFromTo(nMap[from], nMap[to]){}
+                g.SetEdge( g.NewEdge(nMap[from], nMap[to]) )
+            }
+        }
+    }
+
+    sortedNodeKeys := []int{}
+    for key, _ := range nMap {
+        sortedNodeKeys = append(sortedNodeKeys, key)
+    }
+    sort.Ints(sortedNodeKeys)
+
+    perms = 1
+    eCount := int64(1)
+    distinctEdgeTracker := make(map[string]bool)
+    for _, key := range sortedNodeKeys {
+        node := nMap[key]
+        childNodes := graph.NodesOf(g.From(node.ID()))
+        edgeCount := len(childNodes)
+        fmt.Printf("%v - %v - %v \n", key, node, edgeCount)
+        if( edgeCount != 1 ){
+            for _, cn := range childNodes {
+                strRep := fmt.Sprintf("(%v-%v)", node.ID(), cn.ID() )
+                if _, ok := distinctEdgeTracker[strRep]; !ok {
+                    distinctEdgeTracker[strRep] = true
+                }
+            }
+            eCount += int64(edgeCount)
+        } else if len(distinctEdgeTracker) > 1 {
+            if len(distinctEdgeTracker) == 2 {
+                perms *= int64(len(distinctEdgeTracker))
+            } else {
+                perms *= int64(len(distinctEdgeTracker)-1)
+            }
+            distinctEdgeTracker = make(map[string]bool)
+        }
+    }
+    return perms
+}
+
+/**
+* Old Stuff.. I was getting super close on my own..
+*/
 type adptSet struct {
     set []int
 }
