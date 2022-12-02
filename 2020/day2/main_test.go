@@ -14,7 +14,7 @@ type TestCase struct {
     valid bool
 }
 
-func Test_validPassword( t *testing.T ){
+func Test_validPassword2( t *testing.T ){
     fmt.Print("\nTesting occurance based passwords\n")
     tests := []TestCase{
         TestCase{ 2, 4, 'a', "bbaba", true },
@@ -32,7 +32,7 @@ func Test_validPassword( t *testing.T ){
     }
 }
 
-func Test_validPasswordPositions( t *testing.T ){
+func Test_validPasswordPositions3( t *testing.T ){
     fmt.Print("\nTesting position based passwords\n")
     tests := []TestCase{
         TestCase{ 1, 3, 'a', "abcde", true },
