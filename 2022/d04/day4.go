@@ -40,12 +40,10 @@ func main() {
 			total += 1
 		}
 
-		if a0 >= b0 && (a0 <= b1 && a1 <= b1) {
-			fmt.Println("a")
+		if a0 >= b0 && (a0 <= b1 || a1 <= b1) {
 			p2total += 1
 		} else if a0 <= b1 && (a0 >= b0 || a1 >= b0) {
 			p2total += 1
-			fmt.Println("b")
 		}
 
 	}
