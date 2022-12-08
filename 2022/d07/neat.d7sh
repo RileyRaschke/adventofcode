@@ -1,0 +1,26 @@
+$ echo on
+$ cd /
+$ cd x
+$ cd y
+$ ls
+123 a
+456 b
+789 c
+7654321 bigFile
+654321 otherBigFile
+dir z
+$ ls
+$ du
+$ df
+$ cd /
+$ ls
+$ cd new    
+$ cd path
+$ ls
+12345678 bigFile
+1 smallFile
+$ ls
+$ df
+$ du
+$ cd /
+$ du

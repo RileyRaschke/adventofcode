@@ -7,6 +7,7 @@
 *.swp
 *.txt
 *.lis
+day7
 
 # Test binary, built with `go test -c`
 *.test
