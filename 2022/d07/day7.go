@@ -36,17 +36,17 @@ func main() {
 }
 
 func PartOne(shell *ReverseShell) {
-	sub100k := func(x *FsNode) bool {
-		if x.TotalSize() <= 100000 {
+	var p1_total int = 0
+	sumQualifiers := func(x *FsNode) bool {
+		size := x.TotalSize()
+		if size <= 100000 {
+			p1_total += size
 			return true
 		}
 		return false
 	}
 
-	var p1_total int = 0
-	for _, dir := range shell.FindPaths(sub100k) {
-		p1_total += dir.TotalSize()
-	}
+	shell.FindPaths(sumQualifiers)
 
 	fmt.Printf("Part 1 total %d\n", p1_total)
 }
@@ -54,23 +54,24 @@ func PartOne(shell *ReverseShell) {
 func PartTwo(shell *ReverseShell) {
 	usage := shell.DiskUsage()
 	fmt.Printf("Total disk usage is: %d\n", usage)
-
-	p2_min := usage
 	freeSpace := TotalSpace - usage
 	sizeToFree := NeededSpace - freeSpace
 
-	deleteCandidates := func(x *FsNode) bool {
-		if x.TotalSize() >= sizeToFree {
+	var p2_min int = usage
+	var delNode *FsNode
+
+	deletionCandidates := func(x *FsNode) bool {
+		size := x.TotalSize()
+		if size >= sizeToFree {
+			if size < p2_min {
+				p2_min = size
+				delNode = x
+			}
 			return true
 		}
 		return false
 	}
 
-	for _, dir := range shell.FindPaths(deleteCandidates) {
-		size := dir.TotalSize()
-		if size < p2_min {
-			p2_min = size
-		}
-	}
-	fmt.Printf("Part 2 - best dir size %d\n", p2_min)
+	possiblePaths := len(shell.FindPaths(deletionCandidates))
+	fmt.Printf("Part 2 - Delete %s with size %d (out of %d possible paths)\n", delNode.Path(), p2_min, possiblePaths)
 }
