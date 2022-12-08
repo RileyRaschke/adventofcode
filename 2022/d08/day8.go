@@ -16,10 +16,11 @@ type Cord struct {
 }
 
 type Tree struct {
-	Height   int
-	Explored bool
-	ExposedX bool
-	ExposedY bool
+	Height      int
+	Explored    bool
+	ExposedX    bool
+	ExposedY    bool
+	ScenicScore int
 }
 
 var (
@@ -29,7 +30,7 @@ var (
 func MakeRow(str string, row []*Tree) {
 	for i, v := range str {
 		h, _ := strconv.Atoi(string(v))
-		row[i] = &Tree{h, false, false, false}
+		row[i] = &Tree{h, false, false, false, 0}
 	}
 }
 
@@ -49,8 +50,9 @@ func main() {
 	}
 	grid.Search()
 	fmt.Printf("%v", grid)
-	exposed := grid.CountExposed()
+	exposed, maxScore := grid.Results()
 	fmt.Printf("Part 1: %d trees are exposed\n", exposed)
+	fmt.Printf("Part 2: Highest senic score is %d\n", maxScore)
 }
 
 func CordUp(c Cord) Cord {
@@ -77,15 +79,16 @@ func (t *Tree) String() string {
 	if t.ExposedY {
 		y = 1
 	}
-	return fmt.Sprintf("%d %b%v%v", t.Height, e, x, y)
+	return fmt.Sprintf("%d-%d-%b%v%v", t.Height, t.ScenicScore, e, x, y)
 }
 
 func (t *Tree) IsExposed() bool {
 	return t.ExposedX || t.ExposedY
 }
 
-func (g ForestGrid) CountExposed() int {
+func (g ForestGrid) Results() (int, int) {
 	var t int
+	var maxScore int
 	w := g.Width()
 	h := g.Height()
 	for x := 0; x < w; x++ {
@@ -93,9 +96,12 @@ func (g ForestGrid) CountExposed() int {
 			if g[y][x].IsExposed() {
 				t++
 			}
+			if g[y][x].ScenicScore > maxScore {
+				maxScore = g[y][x].ScenicScore
+			}
 		}
 	}
-	return t
+	return t, maxScore
 }
 
 func (g ForestGrid) Search() {
@@ -104,6 +110,7 @@ func (g ForestGrid) Search() {
 	for x := 0; x < w; x++ {
 		for y := 0; y < h; y++ {
 			g.Explore(Cord{x, y})
+			g.ScenicScores(Cord{x, y})
 		}
 	}
 }
@@ -120,8 +127,7 @@ func (g ForestGrid) Explore(c Cord) {
 				} else {
 					this.ExposedX = true
 				}
-				this.Explored = true
-				return
+				break
 			}
 			n := g.At(nc)
 			if n.Height >= this.Height {
@@ -130,17 +136,41 @@ func (g ForestGrid) Explore(c Cord) {
 			if yPlane[idx] && n.ExposedY && this.Height > n.Height {
 				this.ExposedY = true
 				this.Explored = true
-				return
+				break
 			}
 			if !yPlane[idx] && n.ExposedX && this.Height > n.Height {
 				this.ExposedX = true
-				this.Explored = true
-				return
+				break
 			}
 			nc = f(nc)
 		}
 	}
 	this.Explored = true
+}
+func (g ForestGrid) ScenicScores(c Cord) {
+	funcs := []func(Cord) Cord{CordUp, CordDown, CordLeft, CordRight}
+	this := g.At(c)
+	for idx, f := range funcs {
+		dist := 1
+		nc := f(c)
+		for {
+			if !g.ValidCord(nc) {
+				dist--
+				break
+			}
+			n := g.At(nc)
+			if n.Height >= this.Height {
+				break
+			}
+			nc = f(nc)
+			dist++
+		}
+		if idx == 0 {
+			this.ScenicScore = dist
+		} else {
+			this.ScenicScore *= dist
+		}
+	}
 }
 func (g ForestGrid) ValidCord(c Cord) bool {
 	if c.x < 0 || c.y < 0 {
