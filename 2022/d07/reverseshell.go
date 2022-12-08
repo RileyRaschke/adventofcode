@@ -50,12 +50,15 @@ func (sh *ReverseShell) Cmd(cmd string) {
 		return
 	case "du":
 		u := sh.cwd.TotalSize()
-		fmt.Printf("%.2f%% %d\n", (float32(u)/float32(TotalSpace))*100.0, u)
+		fmt.Printf("usage %.2f%% size %d - %s\n", (float32(u)/float32(TotalSpace))*100.0, u, sh.cwd.Path())
 		return
 	case "df":
 		u := sh.fs.TotalSize()
 		free := TotalSpace - u
-		fmt.Printf("%.2f%% %d\n", (float32(free)/float32(TotalSpace))*100.0, free)
+		fmt.Printf("%.2f%% free %d available\n", (float32(free)/float32(TotalSpace))*100.0, free)
+		return
+	case "mkdir":
+		sh.cwd.MkDir(args[1])
 		return
 	case "echo":
 		if args[1] == "on" {
@@ -65,7 +68,7 @@ func (sh *ReverseShell) Cmd(cmd string) {
 		}
 		return
 	default:
-		panic(fmt.Sprintf("Command not found: %s", cmd))
+		panic(fmt.Sprintf("command not found: %s", cmd))
 	}
 }
 
