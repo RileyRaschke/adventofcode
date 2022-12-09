@@ -16,22 +16,23 @@ type Cord struct {
 
 type Rope struct {
 	Visits map[Cord]int
-	Head   *Cord
-	Tail   *Cord
+	Knots  []*Cord
 }
 
-var (
-	rope *Rope
-)
-
-func NewRope() *Rope {
-	r := &Rope{make(map[Cord]int), &Cord{0, 0}, &Cord{0, 0}}
-	r.Visits[*r.Tail] = 1
+func NewRope(length int) *Rope {
+	knots := make([]*Cord, length)
+	for i := range knots {
+		knots[i] = &Cord{0, 0}
+	}
+	r := &Rope{make(map[Cord]int), knots}
+	r.Visits[*r.Knots[len(r.Knots)-1]] = 1
 	return r
 }
 
 func main() {
-	rope = NewRope()
+	rope1 := NewRope(2)
+	rope2 := NewRope(10)
+
 	reader := bufio.NewReader(os.Stdin)
 	for {
 		str, _, err := reader.ReadLine()
@@ -39,10 +40,47 @@ func main() {
 			break
 		}
 		line := strings.TrimSpace(string(str))
-		rope.MoveHead(line)
+		rope1.Move(line)
+		rope2.Move(line)
 	}
-	fmt.Printf("%s", rope)
-	fmt.Printf("Part1: %d\n", len(rope.Visits))
+	fmt.Printf("%s", rope1)
+	fmt.Printf("%s", rope2)
+	fmt.Printf("Part1: %d\n", len(rope1.Visits))
+	fmt.Printf("Part2: %d\n", len(rope2.Visits))
+}
+
+func CordsAdjacent(lead *Cord, follow *Cord) (bool, string) {
+	adjacent := true
+	xDist := lead.X - follow.X
+	yDist := lead.Y - follow.Y
+	followMove := ""
+	if math.Abs(float64(xDist))+math.Abs(float64(yDist)) == 3 {
+		if yDist > 0 {
+			yDist++
+		} else {
+			yDist--
+		}
+		if xDist > 0 {
+			xDist++
+		} else {
+			xDist--
+		}
+	}
+	if xDist > 1 {
+		followMove += "R"
+		adjacent = false
+	} else if xDist < -1 {
+		followMove += "L"
+		adjacent = false
+	}
+	if yDist > 1 {
+		followMove += "U"
+		adjacent = false
+	} else if yDist < -1 {
+		followMove += "D"
+		adjacent = false
+	}
+	return adjacent, followMove
 }
 
 func (c *Cord) MoveCord(dir string) {
@@ -64,58 +102,27 @@ func (c *Cord) MoveCord(dir string) {
 	}
 }
 
-func (r *Rope) MoveHead(m string) {
+func (r *Rope) Move(m string) {
 	var dir string
 	var moveCount int
 	fmt.Sscanf(m, "%s %d", &dir, &moveCount)
 	for i := 0; i < moveCount; i++ {
-		r.Head.MoveCord(dir)
-		adjacent, tailMove := r.HeadTailAdjacent()
-		if !adjacent {
-			r.Tail.MoveCord(tailMove)
-
-			if _, ok := r.Visits[*r.Tail]; ok {
-				r.Visits[*r.Tail]++
-			} else {
-				r.Visits[*r.Tail] = 1
+		r.Head().MoveCord(dir)
+		for k := 0; k+1 < len(r.Knots); k++ {
+			adjacent, followMove := CordsAdjacent(r.Knots[k], r.Knots[k+1])
+			if !adjacent {
+				r.Knots[k+1].MoveCord(followMove)
+				if r.Knots[k+1] == r.Tail() {
+					if _, ok := r.Visits[*r.Tail()]; ok {
+						r.Visits[*r.Tail()]++
+					} else {
+						r.Visits[*r.Tail()] = 1
+					}
+				}
 			}
 		}
 		//fmt.Printf("H%s T%s %s\n", r.Head, r.Tail, tailMove)
 	}
-}
-
-func (r *Rope) HeadTailAdjacent() (bool, string) {
-	adjacent := true
-	xDist := r.Head.X - r.Tail.X
-	yDist := r.Head.Y - r.Tail.Y
-	tailMove := ""
-	if math.Abs(float64(xDist))+math.Abs(float64(yDist)) == 3 {
-		if yDist > 0 {
-			yDist++
-		} else {
-			yDist--
-		}
-		if xDist > 0 {
-			xDist++
-		} else {
-			xDist--
-		}
-	}
-	if xDist > 1 {
-		tailMove += "R"
-		adjacent = false
-	} else if xDist < -1 {
-		tailMove += "L"
-		adjacent = false
-	}
-	if yDist > 1 {
-		tailMove += "U"
-		adjacent = false
-	} else if yDist < -1 {
-		tailMove += "D"
-		adjacent = false
-	}
-	return adjacent, tailMove
 }
 
 func (c *Cord) String() string {
@@ -153,4 +160,12 @@ func (r *Rope) String() string {
 		grid += "\n"
 	}
 	return grid
+}
+
+func (r *Rope) Head() *Cord {
+	return r.Knots[0]
+}
+
+func (r *Rope) Tail() *Cord {
+	return r.Knots[len(r.Knots)-1]
 }
