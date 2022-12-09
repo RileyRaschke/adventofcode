@@ -7,7 +7,6 @@ import (
 	"math"
 	"os"
 	"strings"
-	"time"
 
 	tm "github.com/buger/goterm"
 	"github.com/gookit/color"
@@ -37,7 +36,7 @@ func NewRope(length int) *Rope {
 }
 
 func Animate(str string) {
-	microsecondsFloat := (1.0 / REFRESH_RATE_HZ) * 1000 * 1000
+	//microsecondsFloat := (1.0 / REFRESH_RATE_HZ) * 1000 * 1000
 	tm.MoveCursor(1, 1)
 	tm.Println("")
 	for _, row := range strings.Split(str, "\n") {
@@ -45,14 +44,16 @@ func Animate(str string) {
 	}
 	tm.MoveCursor(1, 1)
 	tm.Flush()
-	time.Sleep(time.Duration(int(math.Ceil(microsecondsFloat))) * time.Microsecond)
+	//time.Sleep(time.Duration(int(math.Ceil(microsecondsFloat))) * time.Microsecond)
 }
 
 func main() {
 	tm.Clear()
 	rope1 := NewRope(2)
-	rope1.Animate = true
 	rope2 := NewRope(10)
+	rope2.Animate = true
+	rope3 := NewRope(70)
+	//rope3.Animate = true
 
 	reader := bufio.NewReader(os.Stdin)
 	for {
@@ -63,6 +64,7 @@ func main() {
 		line := strings.TrimSpace(string(str))
 		rope1.Move(line)
 		rope2.Move(line)
+		rope3.Move(line)
 	}
 	fmt.Printf("%s", rope1)
 	fmt.Println()
@@ -140,11 +142,11 @@ func (r *Rope) Move(m string) {
 					} else {
 						r.Visits[*r.Tail()] = 1
 					}
+					if r.Animate {
+						Animate(r.String())
+					}
 				}
 			}
-		}
-		if r.Animate {
-			Animate(r.String())
 		}
 	}
 }
