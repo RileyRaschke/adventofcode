@@ -10,10 +10,14 @@ import (
 
 var (
 	total, cycle, rx int
+	screen           [][]bool
+	sHeight, sWidth  int = 6, 40
+	spritePos        int = 1
 )
 
 func main() {
 	rx = 1
+	screen = NewScreen()
 	reader := bufio.NewReader(os.Stdin)
 	for {
 		str, _, err := reader.ReadLine()
@@ -32,8 +36,8 @@ func main() {
 			rx += v
 		}
 	}
-
 	fmt.Printf("Part1: %d\n", total)
+	fmt.Printf("Part2:\n%s\n", DrawScreen())
 }
 
 func runCycle() {
@@ -41,6 +45,7 @@ func runCycle() {
 	if isSignal(cycle) {
 		total += cycle * rx
 	}
+	processPixel(cycle)
 }
 
 func isSignal(c int) bool {
@@ -48,4 +53,35 @@ func isSignal(c int) bool {
 		return true
 	}
 	return false
+}
+
+func processPixel(c int) {
+	row := (c - 1) / 40
+	col := (c - 1) % 40
+	if col == rx || col == rx-1 || col == rx+1 {
+		screen[row][col] = true
+	}
+}
+
+func NewScreen() [][]bool {
+	s := make([][]bool, sHeight)
+	for i := range s {
+		s[i] = make([]bool, sWidth)
+	}
+	return s
+}
+
+func DrawScreen() string {
+	s := ""
+	for _, row := range screen {
+		for _, px := range row {
+			if px {
+				s += "#"
+			} else {
+				s += "."
+			}
+		}
+		s += "\n"
+	}
+	return s
 }
