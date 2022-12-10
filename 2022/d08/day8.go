@@ -87,8 +87,8 @@ func (g ForestGrid) Explore() (int, int) {
 	h := g.Height()
 	for x := 0; x < w; x++ {
 		for y := 0; y < h; y++ {
-			// go func() { //bombs out...
 			c := Cord{x, y}
+			//go func(cord Cord) { // too many threads.
 
 			g.FindExposed(c)
 			g.ScenicScores(c)
@@ -101,7 +101,7 @@ func (g ForestGrid) Explore() (int, int) {
 			if t.ScenicScore > maxScore {
 				maxScore = t.ScenicScore
 			}
-			//}()
+			//}(c)
 		}
 	}
 	return exposed, maxScore
