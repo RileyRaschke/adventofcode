@@ -12,7 +12,6 @@ var (
 	total, cycle, rx int
 	screen           [][]bool
 	sHeight, sWidth  int = 6, 40
-	spritePos        int = 1
 )
 
 func main() {
