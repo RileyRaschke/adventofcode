@@ -22,7 +22,8 @@ type Monkey struct {
 type MonkeyGroup []*Monkey
 
 var (
-	monkeys MonkeyGroup
+	monkeys     MonkeyGroup
+	reduceWorry bool = true
 )
 
 func main() {
@@ -72,6 +73,9 @@ func main() {
 			continue
 		}
 	}
+	fmt.Printf("%v\n", monkeys)
+	monkeys_Part2 := monkeys.DeepCopy()
+	// Part1
 	monkeys.RunRounds(20)
 	var mb int = 1
 	for _, ti := range monkeys.TopInspectors(2) {
@@ -79,21 +83,35 @@ func main() {
 	}
 	fmt.Printf("%v\n", monkeys)
 	fmt.Printf("Part1: %d\n", mb)
+
+	// Part2
+	reduceWorry = false
+	monkeys_Part2.RunRounds(10000)
+	mb = 1
+	for _, ti := range monkeys_Part2.TopInspectors(2) {
+		mb *= ti.Inspections
+	}
+	//fmt.Printf("%v\n", monkeys_Part2)
+	fmt.Printf("Part2: %d\n", mb)
 }
 
 func (p MonkeyGroup) RunRounds(n int) {
 	for i := 0; i < n; i++ {
 		p.RunRound()
+		if i+1 == 1 || i+1 == 20 || (i+1)%1000 == 0 {
+			p.Dump(i + 1)
+		}
 	}
 }
 
 func (p MonkeyGroup) RunRound() {
+	cm := p.CommonMultiple()
 	for _, m := range p {
 		for {
 			if len(m.Items) == 0 {
 				break
 			}
-			destMonkey, value := m.ProcessItem()
+			destMonkey, value := m.ProcessItem(cm)
 			p[destMonkey].Items = append(p[destMonkey].Items, value)
 		}
 	}
@@ -110,7 +128,31 @@ func (p MonkeyGroup) TopInspectors(c int) MonkeyGroup {
 	return gc[len(p)-c:]
 }
 
-func (m *Monkey) ProcessItem() (dest, val int) {
+func (p MonkeyGroup) CommonMultiple() int {
+	var x int = 1
+	for _, m := range p {
+		x *= m.Test
+	}
+	return x
+}
+
+func (p MonkeyGroup) Dump(round int) {
+	fmt.Printf("== After round %d ==\n", round)
+	for i, m := range p {
+		fmt.Printf("Monkey %d, inspected items %d times.\n", i, m.Inspections)
+	}
+	fmt.Println("")
+}
+
+func (p MonkeyGroup) DeepCopy() MonkeyGroup {
+	var gc MonkeyGroup = make([]*Monkey, len(p))
+	for i, m := range p {
+		gc[i] = &Monkey{m.Items, m.Operation, m.Test, m.OnSuccess, m.OnFail, m.Inspections}
+	}
+	return gc
+}
+
+func (m *Monkey) ProcessItem(cm int) (dest, val int) {
 	m.Inspections++
 	item := m.Items[0]
 	m.Items = m.Items[1:]
@@ -142,7 +184,12 @@ func (m *Monkey) ProcessItem() (dest, val int) {
 		n = x / y
 		break
 	}
-	tv := n / 3
+	var tv int = n
+	if reduceWorry {
+		tv = n / 3
+	} else {
+		tv = n % cm
+	}
 
 	if tv%m.Test == 0 {
 		return m.OnSuccess, tv
