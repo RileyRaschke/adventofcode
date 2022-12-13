@@ -6,6 +6,8 @@ import (
 	"io"
 	"os"
 	"sort"
+
+	"github.com/gookit/color"
 )
 
 type Cord struct {
@@ -166,7 +168,13 @@ func (m *HeightMap) String() string {
 	s := ""
 	for _, row := range m.Grid {
 		for _, n := range row {
-			s += fmt.Sprintf("%2d ", n.Height)
+			if n == m.StartPos {
+				s += color.White.Render(color.Bold.Render(fmt.Sprintf("%2d ", n.Height)))
+			} else if n == m.EndPos {
+				s += color.Green.Render(color.Bold.Render(fmt.Sprintf("%2d ", n.Height)))
+			} else {
+				s += fmt.Sprintf("%2d ", n.Height)
+			}
 		}
 		s += "\n"
 	}
