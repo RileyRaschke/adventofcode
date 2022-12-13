@@ -105,11 +105,15 @@ func (m *HeightMap) ExplorePath(p Path) {
 		return
 	}
 
-	//fmt.Printf("%v\n", p)
+	fmt.Printf("%v\n", p)
 	for _, n := range m.Neighbors(this) {
-		if n.Step > 0 && n.Step <= this.Step {
-			continue
-		}
+		/*
+			for {
+				n := m.NextNode(this)
+				if n == nil {
+					m.ExplorePath(p[:pl-2])
+				}
+		*/
 		if p.Contains(n) {
 			continue
 		}
@@ -136,8 +140,43 @@ func (p Path) Contains(n *MapNode) bool {
 	return false
 }
 
+func (m *HeightMap) NextNode(curr *MapNode) *MapNode {
+	var maxUtil int = -100
+	var next *MapNode = nil
+	for _, n := range m.Neighbors(curr) {
+		if n.Step > 0 && n.Step < curr.Step {
+			continue
+		}
+		utility := m.Utility(curr, n)
+		if utility > maxUtil {
+			next = n
+			maxUtil = utility
+		}
+	}
+	return next
+}
+func (m *HeightMap) Utility(curr, next *MapNode) int {
+	var u int
+	if next.Position.X-m.EndPos.Position.X < curr.Position.X-m.EndPos.Position.X {
+		u++
+	}
+	if next.Position.Y-m.EndPos.Position.Y < curr.Position.Y-m.EndPos.Position.Y {
+		u++
+	}
+	if m.EndPos.Position.X-next.Position.X < m.EndPos.Position.X-curr.Position.X {
+		u++
+	}
+	if m.EndPos.Position.Y-next.Position.Y < m.EndPos.Position.Y-curr.Position.Y {
+		u++
+	}
+	if next.Height < curr.Height+1 {
+		u--
+	}
+	return u
+}
+
 func (m *HeightMap) Neighbors(n *MapNode) []*MapNode {
-	dirs := []func(Cord) Cord{CordUp, CordDown, CordLeft, CordRight}
+	dirs := []func(Cord) Cord{CordRight, CordDown, CordLeft, CordUp}
 	neighbors := []*MapNode{}
 	for _, f := range dirs {
 		x := f(n.Position)
