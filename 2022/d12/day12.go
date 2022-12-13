@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"sort"
 
@@ -101,33 +102,21 @@ func (m *HeightMap) ExplorePath(p Path) {
 
 	if this.Step == 0 {
 		this.Step = pl
-	} else if this.Step > 0 && this.Step <= pl {
-		return
 	}
 
-	fmt.Printf("%v\n", p)
-	for _, n := range m.Neighbors(this) {
-		/*
-			for {
-				n := m.NextNode(this)
-				if n == nil {
-					m.ExplorePath(p[:pl-2])
-				}
-		*/
-		if p.Contains(n) {
-			continue
-		}
-		if n.Height-this.Height > 1 {
-			continue
-		}
-		if n.Dead {
-			continue
+	//fmt.Printf("%v\n", p)
+	for {
+		n := m.NextNode(this)
+		if n == nil {
+			this.Dead = true
+			return
 		}
 		if n == m.EndPos {
 			m.Paths = append(m.Paths, append(p, n))
-			continue
+			return
+		} else {
+			m.ExplorePath(append(p, n))
 		}
-		m.ExplorePath(append(p, n))
 	}
 }
 
@@ -144,8 +133,17 @@ func (m *HeightMap) NextNode(curr *MapNode) *MapNode {
 	var maxUtil int = -100
 	var next *MapNode = nil
 	for _, n := range m.Neighbors(curr) {
-		if n.Step > 0 && n.Step < curr.Step {
+		if n.Step > 0 && n.Step >= curr.Step {
 			continue
+		}
+		if n.Dead {
+			continue
+		}
+		if n.Height > curr.Height+1 {
+			continue
+		}
+		if n == m.EndPos {
+			return n
 		}
 		utility := m.Utility(curr, n)
 		if utility > maxUtil {
@@ -155,8 +153,24 @@ func (m *HeightMap) NextNode(curr *MapNode) *MapNode {
 	}
 	return next
 }
+
+func (m *HeightMap) Distance(c Cord) float64 {
+	s := m.At(c)
+	d := m.EndPos
+	maxX := math.Max(float64(c.X), float64(d.Position.X))
+	minX := math.Min(float64(c.X), float64(d.Position.X))
+	maxY := math.Max(float64(c.Y), float64(d.Position.Y))
+	minY := math.Min(float64(c.Y), float64(d.Position.Y))
+	xd := maxX - minX
+	yd := maxY - minY
+	zd := float64(d.Height - s.Height)
+	return math.Sqrt(math.Pow(xd, 2) + math.Pow(yd, 2) + math.Pow(zd, 2))
+}
 func (m *HeightMap) Utility(curr, next *MapNode) int {
 	var u int
+	if next.Dead {
+		return -1000
+	}
 	if next.Position.X-m.EndPos.Position.X < curr.Position.X-m.EndPos.Position.X {
 		u++
 	}
@@ -171,6 +185,9 @@ func (m *HeightMap) Utility(curr, next *MapNode) int {
 	}
 	if next.Height < curr.Height+1 {
 		u--
+	}
+	if m.Distance(next.Position) < m.Distance(curr.Position) {
+		u = 100 - int(m.Distance(next.Position))
 	}
 	return u
 }
