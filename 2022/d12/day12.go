@@ -24,18 +24,29 @@ type MapNode struct {
 	Dead     bool
 	Cost     int
 	Utility  float64
+	Seen     bool
+	LosDist  float64
 }
+
+type Path []*MapNode
 
 type HeightMap struct {
 	Grid         [][]*MapNode
 	StartPos     *MapNode
 	EndPos       *MapNode
 	LineOfSight  float64
-	Frontiers    []Path
+	Frontiers    []*PathMap
 	ShortestPath Path
 }
 
-type Path []*MapNode
+type PathMap struct {
+	Path
+	CostMap map[*MapNode]int
+}
+
+var (
+	DumpPaths bool = true
+)
 
 func main() {
 	var x, y int
@@ -73,7 +84,7 @@ func main() {
 }
 
 func NewMapNode(x int, y int, z rune) *MapNode {
-	return &MapNode{Cord{x, y}, int(z - 'a'), string(z), "", false, 0, -1}
+	return &MapNode{Cord{x, y}, int(z - 'a'), string(z), "", false, 0, -1, false, -1}
 }
 
 func (m *HeightMap) FindShortestPath() Path {
@@ -84,25 +95,27 @@ func (m *HeightMap) FindShortestPath() Path {
 }
 
 func (m *HeightMap) CacheUtility() {
+	m.EndPos.Cost = math.MaxInt
 	m.LineOfSight = m.Distance3d(m.StartPos.Position)
 	for _, row := range m.Grid {
 		for _, n := range row {
 			if n == m.EndPos {
 				n.Utility = float64(math.MaxInt64)
+			} else if n == m.StartPos {
+				n.Utility = 0
+				n.LosDist = m.LineOfSight
 			} else {
 				n.Utility = m.CalcUtility(n)
 			}
+			n.Cost = math.MaxInt
 		}
 	}
+	m.StartPos.Cost = 0
+	//fmt.Printf("%s", m.UtilityString())
 }
 
 func (m *HeightMap) FindPaths() Path {
-	neighbors := m.SortedNeighbors(m.StartPos)
-	for _, n := range neighbors {
-		n.Cost = 2
-		p := Path{m.StartPos, n}
-		m.AddFrontierPath(p)
-	}
+	m.AddFrontierPath(Path{m.StartPos})
 	for {
 		found := m.ExplorePath()
 		if found {
@@ -114,18 +127,29 @@ func (m *HeightMap) FindPaths() Path {
 
 func (m *HeightMap) AddFrontierPath(p Path) {
 	last := p[len(p)-1]
-	for i, q := range m.Frontiers {
-		if pos := q.Contains(last); pos >= 0 {
-			if pos > len(p) {
-				m.Frontiers[i] = p
-				last.Cost = len(p)
-				return
-			}
+	for _, q := range m.Frontiers {
+		if _, ok := q.CostMap[last]; ok {
+			/*
+				if val > len(p)-1 {
+					m.Frontiers[i] = PathMapFromPath(p)
+					return
+				}
+			*/
 			return
 		}
-
+		if p.PathUtility() == q.PathUtility() && p.Last() == q.Last() {
+			return
+		}
 	}
-	m.Frontiers = append(m.Frontiers, p)
+	m.Frontiers = append(m.Frontiers, PathMapFromPath(p))
+}
+
+func PathMapFromPath(p Path) *PathMap {
+	pm := &PathMap{p, make(map[*MapNode]int, len(p))}
+	for i, v := range p {
+		pm.CostMap[v] = i
+	}
+	return pm
 }
 
 func (m *HeightMap) ExplorePath() bool {
@@ -144,15 +168,14 @@ func (m *HeightMap) ExplorePath() bool {
 		m.AddPath(p)
 		return true
 	}
-	if this.Cost == 0 {
-		this.Cost = pl
-	}
-	if this.Cost < pl {
+	if this.Cost < pl-1 {
 		return false
 	}
+	this.Cost = pl - 1
 	if len(m.Grid) < 20 {
 		fmt.Printf("%v\n", p)
 	}
+	this.Seen = true
 	next := m.SortedNeighbors(this)
 	if len(next) == 0 {
 		//this.Dead = true
@@ -183,12 +206,15 @@ func (m *HeightMap) SortedNeighbors(curr *MapNode) []*MapNode {
 		if n.Height > curr.Height+1 {
 			continue
 		}
-		if n.Cost > 0 && n.Cost < curr.Cost {
+		if n.Seen && m.LowestCost(n) < curr.Cost {
 			continue
 		}
-		if !n.Dead {
-			neighbors = append(neighbors, n)
-		}
+		/*
+			if !n.Dead {
+				neighbors = append(neighbors, n)
+			}
+		*/
+		neighbors = append(neighbors, n)
 	}
 	sort.Slice(neighbors, func(i, j int) bool {
 		return neighbors[i].Utility > neighbors[j].Utility
@@ -203,31 +229,52 @@ func (m *HeightMap) SortedNeighbors(curr *MapNode) []*MapNode {
 	*/
 }
 
+func (m *HeightMap) LowestCost(n *MapNode) int {
+	c := math.MaxInt
+	for _, f := range m.Frontiers {
+		if val, ok := f.CostMap[n]; ok {
+			if val < c {
+				c = val
+			}
+		}
+	}
+	return c
+}
+
 func (m *HeightMap) NextPath() Path {
 	var p Path
 	if len(m.Frontiers) == 0 {
 		return nil
 	} else if len(m.Frontiers) == 1 {
-		p = m.Frontiers[0]
-		m.Frontiers = []Path{}
+		p = m.Frontiers[0].Path
+		m.Frontiers = []*PathMap{}
 		return p
 	}
-
 	sort.Slice(m.Frontiers, func(i, j int) bool {
-		x := m.Frontiers[i]
-		y := m.Frontiers[j]
+		x := m.Frontiers[i].Path
+		y := m.Frontiers[j].Path
 		iLast := x[len(x)-1]
 		jLast := y[len(y)-1]
 		//return iLast.Utility/float64(len(x)) > jLast.Utility/float64(len(y))
-		return iLast.Cost < jLast.Cost
+		//return iLast.Cost < jLast.Cost
+		//return len(x) < len(y)
+		return iLast.Utility > jLast.Utility
+		//return iLast.LosDist < jLast.LosDist
+		//return x.PathUtility() > y.PathUtility()
 	})
-	fmt.Println("")
+	fmt.Printf("%v\n", m.Frontiers)
+	if DumpPaths {
+		fmt.Println("")
+	}
 	for _, f := range m.Frontiers {
-		fmt.Printf("%s\n", m.DrawPath(f))
+		if DumpPaths {
+			fmt.Printf("%s\n", m.DrawPath(f.Path))
+		}
 	}
 	// pop front
-	p, m.Frontiers = m.Frontiers[0], m.Frontiers[1:len(m.Frontiers)]
-	return p
+	var n *PathMap
+	n, m.Frontiers = m.Frontiers[0], m.Frontiers[1:len(m.Frontiers)]
+	return n.Path
 }
 
 func (m *HeightMap) AddPath(p Path) {
@@ -243,18 +290,16 @@ func (m *HeightMap) AddPath(p Path) {
 func (p Path) Contains(n *MapNode) int {
 	for i, tn := range p {
 		if tn == n {
-			return i + 1
+			return i
 		}
 	}
 	return -1
 }
 func (m *HeightMap) CalcUtility(n *MapNode) float64 {
-	/*
-		u := m.LineOfSight / m.Distance3d(n.Position)
-		//u = u / m.MinElevationDelta(n.Position)
-		return u
-	*/
-	return 1
+	n.LosDist = m.Distance3d(n.Position)
+	u := m.LineOfSight - n.LosDist
+	//u = u / m.MinElevationDelta(n.Position)
+	return u
 }
 
 func (m *HeightMap) Distance2d(c Cord) float64 {
@@ -316,20 +361,59 @@ func (m *HeightMap) ValidCord(c Cord) bool {
 	return true
 }
 
+func (p *PathMap) String() string {
+	return fmt.Sprintf("%s", p.Path)
+}
+
+func (p Path) String() string {
+	if len(p) == 0 {
+		return "{}"
+	}
+	last := p[len(p)-1]
+	return fmt.Sprintf("F:%s U:(%.3f) L:(%d) SV:(%f)", last, last.Utility, len(p), p.PathUtility())
+}
+func (p *PathMap) Last() *MapNode {
+	return p.Path.Last()
+}
+func (p Path) Last() *MapNode {
+	if len(p) == 0 {
+		return nil
+	}
+	return p[len(p)-1]
+}
+func (p *PathMap) PathUtility() float64 {
+	return p.Path.PathUtility()
+}
+func (p Path) PathUtility() float64 {
+	if last := p.Last(); last != nil {
+		//start := p[0]
+		//return last.Utility / (start.LosDist / float64(len(p)-1))
+		//return last.Utility / float64(len(p))
+		return last.Utility / float64(len(p))
+	}
+	return 0
+}
+
+func (n *MapNode) String() string {
+	//return fmt.Sprintf("P(%d,%d) U(%0.5f)", n.Position.X, n.Position.Y, n.Utility)
+	return fmt.Sprintf("(%d,%d)", n.Position.X, n.Position.Y)
+}
+
 func CordUp(c Cord) Cord    { return Cord{c.X, c.Y - 1} }
 func CordDown(c Cord) Cord  { return Cord{c.X, c.Y + 1} }
 func CordLeft(c Cord) Cord  { return Cord{c.X - 1, c.Y} }
 func CordRight(c Cord) Cord { return Cord{c.X + 1, c.Y} }
 
+func (m *HeightMap) String() string {
+	return m.MarkPath(m.ShortestPath)
+}
 func (m *HeightMap) PathString() string {
 	return m.DrawPath(m.ShortestPath)
 }
 
-func (m *HeightMap) String() string {
-	return m.MarkPathString(m.ShortestPath)
-}
 func (m *HeightMap) DrawPath(sp Path) string {
-	s := fmt.Sprintf("Len=%d\n", len(sp))
+	//s := fmt.Sprintf("Len=%d\n", len(sp))
+	s := fmt.Sprintf("%s\n", sp)
 	pathMap := make(map[*MapNode]string, len(sp))
 	if len(sp) > 0 {
 		for i, n := range sp {
@@ -366,7 +450,7 @@ func (m *HeightMap) DrawPath(sp Path) string {
 	return s
 }
 
-func (m *HeightMap) MarkPathString(sp Path) string {
+func (m *HeightMap) MarkPath(sp Path) string {
 	s := ""
 	pathMap := make(map[*MapNode]bool, len(sp))
 	if len(sp) > 0 {
@@ -391,8 +475,13 @@ func (m *HeightMap) MarkPathString(sp Path) string {
 	}
 	return s
 }
-
-func (n *MapNode) String() string {
-	//return fmt.Sprintf("P(%d,%d) U(%0.5f)", n.Position.X, n.Position.Y, n.Utility)
-	return fmt.Sprintf("(%d,%d)", n.Position.X, n.Position.Y)
+func (m *HeightMap) UtilityString() string {
+	s := ""
+	for _, row := range m.Grid {
+		for _, n := range row {
+			s += fmt.Sprintf("%-4.1f ", n.Utility)
+		}
+		s += "\n"
+	}
+	return s
 }
