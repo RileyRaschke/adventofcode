@@ -22,7 +22,7 @@ type MapNode struct {
 	Val      string
 	Dir      string
 	Dead     bool
-	Step     int
+	Cost     int
 	Utility  float64
 }
 
@@ -31,7 +31,7 @@ type HeightMap struct {
 	StartPos     *MapNode
 	EndPos       *MapNode
 	LineOfSight  float64
-	Paths        []Path
+	Frontiers    []Path
 	ShortestPath Path
 }
 
@@ -84,7 +84,7 @@ func (m *HeightMap) FindShortestPath() Path {
 }
 
 func (m *HeightMap) CacheUtility() {
-	m.LineOfSight = m.Distance(m.StartPos.Position)
+	m.LineOfSight = m.Distance3d(m.StartPos.Position)
 	for _, row := range m.Grid {
 		for _, n := range row {
 			if n == m.EndPos {
@@ -96,54 +96,138 @@ func (m *HeightMap) CacheUtility() {
 	}
 }
 
-func (m *HeightMap) FindPaths() []Path {
-	m.ExplorePath(Path{m.StartPos})
-	return m.Paths
+func (m *HeightMap) FindPaths() Path {
+	neighbors := m.SortedNeighbors(m.StartPos)
+	for _, n := range neighbors {
+		n.Cost = 2
+		p := Path{m.StartPos, n}
+		m.AddFrontierPath(p)
+	}
+	for {
+		found := m.ExplorePath()
+		if found {
+			break
+		}
+	}
+	return m.ShortestPath
 }
 
-func (m *HeightMap) ExplorePath(p Path) {
-	/*
-		if len(m.Paths) > 0 {
-			fmt.Printf("%v\n", m.Paths)
+func (m *HeightMap) AddFrontierPath(p Path) {
+	last := p[len(p)-1]
+	for i, q := range m.Frontiers {
+		if pos := q.Contains(last); pos >= 0 {
+			if pos > len(p) {
+				m.Frontiers[i] = p
+				last.Cost = len(p)
+				return
+			}
+			return
 		}
-	*/
+
+	}
+	m.Frontiers = append(m.Frontiers, p)
+}
+
+func (m *HeightMap) ExplorePath() bool {
 	var this *MapNode
+	p := m.NextPath()
+	if p == nil {
+		return true // shouldn't happen?
+	}
 	pl := len(p)
 	if pl == 1 {
 		this = p[0]
 	} else {
 		this = p[pl-1]
 	}
-
-	if this.Step == 0 {
-		this.Step = pl
+	if this == m.EndPos {
+		m.AddPath(p)
+		return true
 	}
-	if this.Step < pl {
-		return
+	if this.Cost == 0 {
+		this.Cost = pl
 	}
-
-	spLen := len(m.ShortestPath)
-	if spLen > 0 && pl+1 >= spLen {
-		return
+	if this.Cost < pl {
+		return false
 	}
 	if len(m.Grid) < 20 {
 		fmt.Printf("%v\n", p)
 	}
-	nexts := m.SortedNeighbors(this)
-	if len(nexts) == 0 {
-		this.Dead = true
-		return
+	next := m.SortedNeighbors(this)
+	if len(next) == 0 {
+		//this.Dead = true
+		return false
 	}
-	for _, n := range nexts {
+	for _, n := range next {
 		if n == m.EndPos {
 			m.AddPath(append(p, n))
-			return
-		} else if p.Contains(n) {
+			return true
+		} else if p.Contains(n) >= 0 {
 			continue
 		} else {
-			m.ExplorePath(append(p, n))
+			m.AddFrontierPath(append(p, n))
 		}
 	}
+	return false
+}
+
+func (m *HeightMap) SortedNeighbors(curr *MapNode) []*MapNode {
+	dirs := []func(Cord) Cord{CordRight, CordUp, CordLeft, CordDown}
+	neighbors := []*MapNode{}
+	for _, f := range dirs {
+		x := f(curr.Position)
+		if !m.ValidCord(x) {
+			continue
+		}
+		n := m.At(x)
+		if n.Height > curr.Height+1 {
+			continue
+		}
+		if n.Cost > 0 && n.Cost < curr.Cost {
+			continue
+		}
+		if !n.Dead {
+			neighbors = append(neighbors, n)
+		}
+	}
+	sort.Slice(neighbors, func(i, j int) bool {
+		return neighbors[i].Utility > neighbors[j].Utility
+	})
+	//fmt.Printf("%v\n", neighbors)
+	return neighbors
+	/*
+		if len(neighbors) > 0 {
+			return []*MapNode{neighbors[0]}
+		}
+		return neighbors
+	*/
+}
+
+func (m *HeightMap) NextPath() Path {
+	var p Path
+	if len(m.Frontiers) == 0 {
+		return nil
+	} else if len(m.Frontiers) == 1 {
+		p = m.Frontiers[0]
+		m.Frontiers = []Path{}
+		return p
+	}
+
+	sort.Slice(m.Frontiers, func(i, j int) bool {
+		x := m.Frontiers[i]
+		y := m.Frontiers[j]
+		iLast := x[len(x)-1]
+		jLast := y[len(y)-1]
+		//return iLast.Utility/float64(len(x)) > jLast.Utility/float64(len(y))
+		return iLast.Cost < jLast.Cost
+	})
+	fmt.Println("")
+	for _, f := range m.Frontiers {
+		fmt.Printf("%s\n", m.DrawPath(f))
+	}
+	// pop front
+	p, m.Frontiers = m.Frontiers[0], m.Frontiers[1:len(m.Frontiers)]
+	return p
 }
 
 func (m *HeightMap) AddPath(p Path) {
@@ -156,47 +240,24 @@ func (m *HeightMap) AddPath(p Path) {
 	}
 }
 
-func (p Path) Contains(n *MapNode) bool {
-	for _, tn := range p {
+func (p Path) Contains(n *MapNode) int {
+	for i, tn := range p {
 		if tn == n {
-			return true
+			return i + 1
 		}
 	}
-	return false
+	return -1
 }
-func (m *HeightMap) SortedNeighbors(curr *MapNode) []*MapNode {
-	dirs := []func(Cord) Cord{CordRight, CordDown, CordLeft, CordUp}
-	neighbors := []*MapNode{}
-	for _, f := range dirs {
-		x := f(curr.Position)
-		if !m.ValidCord(x) {
-			continue
-		}
-		n := m.At(x)
-		if n.Height > curr.Height+1 {
-			continue
-		}
-		if n.Step > 0 && n.Step <= curr.Step {
-			continue
-		}
-		if !n.Dead {
-			neighbors = append(neighbors, n)
-		}
-	}
-	sort.Slice(neighbors, func(i, j int) bool {
-		return neighbors[i].Utility > neighbors[j].Utility
-	})
-	//fmt.Printf("%v\n", neighbors)
-	return neighbors
-}
-
 func (m *HeightMap) CalcUtility(n *MapNode) float64 {
-	u := m.LineOfSight / m.Distance3d(n.Position)
-	//u = u / m.MinElevationDelta(n.Position)
-	return u
+	/*
+		u := m.LineOfSight / m.Distance3d(n.Position)
+		//u = u / m.MinElevationDelta(n.Position)
+		return u
+	*/
+	return 1
 }
 
-func (m *HeightMap) Distance(c Cord) float64 {
+func (m *HeightMap) Distance2d(c Cord) float64 {
 	//s := m.At(c)
 	d := m.EndPos
 	maxX := math.Max(float64(c.X), float64(d.Position.X))
@@ -261,14 +322,21 @@ func CordLeft(c Cord) Cord  { return Cord{c.X - 1, c.Y} }
 func CordRight(c Cord) Cord { return Cord{c.X + 1, c.Y} }
 
 func (m *HeightMap) PathString() string {
-	s := ""
-	pathMap := make(map[*MapNode]string, len(m.ShortestPath))
-	if len(m.ShortestPath) > 0 {
-		for i, n := range m.ShortestPath {
-			if i+1 == len(m.ShortestPath) || i == 0 {
+	return m.DrawPath(m.ShortestPath)
+}
+
+func (m *HeightMap) String() string {
+	return m.MarkPathString(m.ShortestPath)
+}
+func (m *HeightMap) DrawPath(sp Path) string {
+	s := fmt.Sprintf("Len=%d\n", len(sp))
+	pathMap := make(map[*MapNode]string, len(sp))
+	if len(sp) > 0 {
+		for i, n := range sp {
+			if i+1 == len(sp) || i == 0 {
 				continue
 			}
-			next := m.ShortestPath[i+1]
+			next := sp[i+1]
 			if next.Position.X > n.Position.X {
 				pathMap[n] = ">"
 			} else if next.Position.X < n.Position.X {
@@ -288,7 +356,7 @@ func (m *HeightMap) PathString() string {
 			} else if n == m.EndPos {
 				s += color.Green.Render(color.Bold.Render(fmt.Sprintf(nfmt, n.Height)))
 			} else if val, ok := pathMap[n]; ok {
-				s += color.Yellow.Render(color.Bold.Render(fmt.Sprintf("%-2s ", val)))
+				s += color.Yellow.Render(color.Bold.Render(fmt.Sprintf("%2s ", val)))
 			} else {
 				s += fmt.Sprintf("%2d ", n.Height)
 			}
@@ -298,11 +366,11 @@ func (m *HeightMap) PathString() string {
 	return s
 }
 
-func (m *HeightMap) String() string {
+func (m *HeightMap) MarkPathString(sp Path) string {
 	s := ""
-	pathMap := make(map[*MapNode]bool, len(m.ShortestPath))
-	if len(m.ShortestPath) > 0 {
-		for _, n := range m.ShortestPath {
+	pathMap := make(map[*MapNode]bool, len(sp))
+	if len(sp) > 0 {
+		for _, n := range sp {
 			pathMap[n] = true
 		}
 	}
