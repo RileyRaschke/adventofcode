@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math"
@@ -35,7 +36,7 @@ type HeightMap struct {
 	StartPos     *MapNode
 	EndPos       *MapNode
 	LineOfSight  float64
-	Frontiers    map[*MapNode][]Path
+	Frontiers    map[Cord][]Path
 	ShortestPath Path
 }
 
@@ -88,7 +89,7 @@ func NewMapNode(x int, y int, z rune) *MapNode {
 }
 
 func (m *HeightMap) FindShortestPath() Path {
-	m.Frontiers = make(map[*MapNode][]Path)
+	m.Frontiers = make(map[Cord][]Path)
 	m.ShortestPath = nil
 	m.CacheUtility()
 	m.FindPaths()
@@ -126,31 +127,60 @@ func (m *HeightMap) FindPaths() Path {
 	return m.ShortestPath
 }
 
-func (m *HeightMap) AddFrontierPath(p Path) {
+func (m *HeightMap) DumpFrontier() {
+	s, err := json.MarshalIndent(m.Frontiers, "", " ")
+	if err != nil {
+		fmt.Println("Error dumping frontier:", err)
+	}
+	fmt.Println(string(s))
+}
+
+func (m *HeightMap) AddFrontierPath(pS Path) {
+	var p Path = make(Path, len(pS))
+	copy(p, pS)
 	fmt.Printf("Adding path %v\n", p)
 	last := p.Last()
-	if _, ok := m.Frontiers[last]; !ok {
-		m.Frontiers[last] = make([]Path, 0)
+	if _, ok := m.Frontiers[last.Position]; !ok {
+		m.Frontiers[last.Position] = make([]Path, 0)
 	}
-	m.Frontiers[last] = append(m.Frontiers[last], p)
+	m.Frontiers[last.Position] = append(m.Frontiers[last.Position], p)
+	fmt.Printf("Paths on node: %s", last)
+	for i, path := range m.Frontiers[last.Position] {
+		fmt.Printf("\t %d: %v\n", i, path)
+	}
+	m.DumpFrontier()
 }
 
 func (m *HeightMap) NextPath() Path {
 	bestNode := m.StartPos
-	for node, _ := range m.Frontiers {
-		if node.Dead {
-			delete(m.Frontiers, node)
-			continue
-		}
+	for pos, _ := range m.Frontiers {
+		node := m.At(pos)
+		/*
+			if node.Dead {
+				delete(m.Frontiers, node)
+				continue
+			}
+		*/
 		if node.Utility > bestNode.Utility {
 			bestNode = node
 		}
 	}
-	paths := m.Frontiers[bestNode]
+	fmt.Printf("Best Node: %s\n", bestNode)
+	for i, path := range m.Frontiers[bestNode.Position] {
+		fmt.Printf("--- %d: %v\n", i, path)
+	}
+	paths := m.Frontiers[bestNode.Position]
 	sort.Slice(paths, func(i, j int) bool {
 		return len(paths[i]) < len(paths[j])
 	})
-	fmt.Printf("%v\n", m.Frontiers)
+	fmt.Print("Available paths:\n")
+	for i, p := range paths {
+		fmt.Printf("\t %d: %v\n", i, p)
+	}
+	//fmt.Printf("%v\n", m.Frontiers)
+	fmt.Printf("Best Path: %v\n", paths[0])
+	fmt.Println(m.DrawPath(paths[0]))
+	delete(m.Frontiers, bestNode.Position)
 	return paths[0]
 }
 
@@ -189,8 +219,8 @@ func (m *HeightMap) ExplorePath() bool {
 		if n == m.EndPos {
 			m.AddPath(append(p, n))
 			return true
-			//} else if p.Contains(n) >= 0 {
-			//continue
+		} else if p.Contains(n) >= 0 {
+			continue
 		} else {
 			m.AddFrontierPath(append(p, n))
 		}
@@ -210,15 +240,17 @@ func (m *HeightMap) SortedNeighbors(curr *MapNode) []*MapNode {
 		if n.Height > curr.Height+1 {
 			continue
 		}
-		if n.Dead {
-			continue
-		}
+		/*
+			if n.Dead {
+				continue
+			}
+		*/
 		neighbors = append(neighbors, n)
 	}
 	sort.Slice(neighbors, func(i, j int) bool {
 		return neighbors[i].Utility > neighbors[j].Utility
 	})
-	fmt.Printf("%v\n", neighbors)
+	fmt.Printf("Found Neigbors: %v\n", neighbors)
 	return neighbors
 	/*
 		if len(neighbors) > 0 {
@@ -334,29 +366,21 @@ func (m *HeightMap) ValidCord(c Cord) bool {
 	return true
 }
 
-func (p *PathMap) String() string {
-	return fmt.Sprintf("%s", p.Path)
-}
-
-func (p Path) String() string {
-	if len(p) == 0 {
-		return "{}"
-	}
-	last := p[len(p)-1]
-	return fmt.Sprintf("F:%s U:(%.3f) L:(%d) SV:(%f)", last, last.Utility, len(p), p.PathUtility())
-}
 func (p *PathMap) Last() *MapNode {
 	return p.Path.Last()
 }
+
 func (p Path) Last() *MapNode {
 	if len(p) == 0 {
 		return nil
 	}
 	return p[len(p)-1]
 }
+
 func (p *PathMap) PathUtility() float64 {
 	return p.Path.PathUtility()
 }
+
 func (p Path) PathUtility() float64 {
 	if last := p.Last(); last != nil {
 		//start := p[0]
@@ -367,10 +391,46 @@ func (p Path) PathUtility() float64 {
 	return 0
 }
 
-func (n *MapNode) String() string {
-	//return fmt.Sprintf("P(%d,%d) U(%0.5f)", n.Position.X, n.Position.Y, n.Utility)
-	return fmt.Sprintf("(%d,%d)", n.Position.X, n.Position.Y)
+func (c Cord) String() string {
+	return fmt.Sprintf("(%d,%d)", c.X, c.Y)
 }
+
+func (n *MapNode) String() string {
+	//return fmt.Sprintf("P%s U(%0.5f)", n.Position, n.Utility)
+	return fmt.Sprintf("%s", n.Position)
+}
+func (p *PathMap) String() string {
+	return fmt.Sprintf("%s", p.Path)
+}
+
+func (p Path) String() string {
+	if len(p) == 0 {
+		return "{}"
+	}
+	last := p[len(p)-1]
+	//return fmt.Sprintf("F:%s U:(%.3f) L:(%d) SV:(%f)", last, last.Utility, len(p), p.PathUtility())
+	vals := ""
+	for _, n := range p {
+		vals += n.String()
+	}
+	return fmt.Sprintf("F:%s U:(%.3f) L:(%d) SV:(%f) - %s", last, last.Utility, len(p), p.PathUtility(), vals)
+}
+
+func (p Path) MarshalJSON() ([]byte, error) {
+	return json.Marshal(p.String())
+}
+func (c Cord) MarshalText() ([]byte, error) {
+	return []byte(c.String()), nil
+}
+func (n *MapNode) MarshalText() ([]byte, error) {
+	return []byte(n.String()), nil
+}
+
+/*
+func (f map[*main.MapNode][]main.Path) MarshalJSON() ([]byte, error) {
+
+}
+*/
 
 func CordUp(c Cord) Cord    { return Cord{c.X, c.Y - 1} }
 func CordDown(c Cord) Cord  { return Cord{c.X, c.Y + 1} }
