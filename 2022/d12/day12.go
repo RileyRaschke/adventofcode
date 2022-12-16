@@ -8,6 +8,7 @@ import (
 	"math"
 	"os"
 	"sort"
+	"time"
 
 	"github.com/gookit/color"
 )
@@ -38,6 +39,7 @@ type HeightMap struct {
 	LineOfSight  float64
 	Frontiers    map[Cord][]Path
 	ShortestPath Path
+	Paths        []Path
 }
 
 type PathMap struct {
@@ -51,6 +53,7 @@ var (
 )
 
 func main() {
+	tStart := time.Now()
 	var x, y int
 	g := &HeightMap{}
 	row := []*MapNode{}
@@ -82,7 +85,9 @@ func main() {
 	}
 	fmt.Printf("%s\n", g)
 	path := g.FindShortestPath()
+	fmt.Printf("Found paths:\n%v\n", g.Paths)
 	fmt.Printf("\nPart1: %d - %v\n", len(path)-1, path)
+	fmt.Printf("Part1: total runtime: %v\n", time.Since(tStart))
 }
 
 func NewMapNode(x int, y int, z rune) *MapNode {
@@ -197,7 +202,7 @@ func (m *HeightMap) ExplorePath() bool {
 	var this *MapNode
 	p := m.NextPath()
 	if p == nil {
-		fmt.Println("No next path...")
+		fmt.Println("No more paths..")
 		return true
 	}
 	pl := len(p)
@@ -210,18 +215,19 @@ func (m *HeightMap) ExplorePath() bool {
 		m.AddPath(p)
 		return false
 	}
-	this.Cost = pl - 1
+	if pl-1 < this.Cost {
+		this.Cost = pl - 1
+	} else if this.Seen {
+		// if it doesn't cost less and we see it again, short circuit
+		return false
+	}
+	this.Seen = true
 	if len(m.Grid) < 20 {
 		fmt.Printf("%v\n", p)
 	}
-	if this.Seen {
-		return false
-	} else {
-		this.Seen = true
-	}
 	next := m.SortedNeighbors(this)
 	if len(next) == 0 {
-		this.Dead = true
+		//this.Dead = true
 		return false
 	}
 	for _, n := range next {
@@ -254,9 +260,11 @@ func (m *HeightMap) SortedNeighbors(curr *MapNode) []*MapNode {
 		}
 		neighbors = append(neighbors, n)
 	}
-	sort.Slice(neighbors, func(i, j int) bool {
-		return neighbors[i].Utility > neighbors[j].Utility
-	})
+	/*
+		sort.Slice(neighbors, func(i, j int) bool {
+			return neighbors[i].Utility > neighbors[j].Utility
+		})
+	*/
 	//fmt.Printf("Found Neigbors: %v\n", neighbors)
 	return neighbors
 	/*
@@ -290,7 +298,7 @@ func PathMapFromPath(p Path) *PathMap {
 }
 
 func (m *HeightMap) AddPath(p Path) {
-	//m.Paths = append(m.Paths, p)
+	m.Paths = append(m.Paths, p)
 	if m.ShortestPath == nil || len(p) < len(m.ShortestPath) {
 		m.ShortestPath = p
 		fmt.Printf("%s\n", m)
