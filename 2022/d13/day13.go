@@ -9,13 +9,28 @@ import (
 	"strings"
 )
 
+type ItemType int
+
+const (
+	List ItemType = iota
+	Number
+)
+
 type PacketPair struct {
 	Left  string
 	Right string
+	level int
 }
 
-type Item rune
-type List string
+type PacketParser struct {
+	o string
+	s string
+}
+
+type PacketItem struct {
+	v string
+	t ItemType
+}
 
 var (
 	pairs  []PacketPair = make([]PacketPair, 0)
@@ -48,22 +63,171 @@ func main() {
 	pairs = append(pairs, p)
 
 	for i, p := range pairs {
-		fmt.Printf("\n%s\n", p.Left)
+		fmt.Printf("== Pair %d ==\n", i+1)
 		if p.IsValid() {
 			validPackets += (i + 1)
-			fmt.Println("Y")
+			fmt.Println("Y\n")
 		} else {
-			fmt.Println("N - ", reason)
+			fmt.Println("N\n")
 		}
-		fmt.Printf("%s\n\n", p.Right)
-		reason = ""
 	}
 
 	fmt.Printf("Part1: %d\n", validPackets)
 }
 
 func (p PacketPair) IsValid() bool {
+	fmt.Printf("- Compare %s vs %s\n", p.Left, p.Right)
+	pL := NewPacketParser(p.Left)
+	pR := NewPacketParser(p.Right)
+
+	lVal := pL.Next()
+	rVal := pR.Next()
+
+	if lVal == nil {
+		fmt.Println("  - Left ran out of values")
+		return true
+	}
+	if rVal == nil {
+		fmt.Println("  - Right ran out of items")
+		return false
+	}
+	if lVal.IsNumber() && rVal.IsNumber() {
+		fmt.Printf("  - Compare %s vs %s\n", lVal, rVal)
+		intL := lVal.IntVal()
+		intR := rVal.IntVal()
+		if intL > intR {
+			fmt.Printf("   - %d > %d\n", intL, intR)
+			return false
+		}
+		if intL < intR {
+			fmt.Printf(" Early qualify!!!\n")
+			return true
+		}
+		newPair := PacketPair{pL.s, pR.s, p.level}
+		return newPair.IsValid()
+	}
+
+	if lVal.IsList() && rVal.IsList() {
+		fmt.Println("Both are lists")
+		newPair := PacketPair{lVal.String(), rVal.String(), p.level + 1}
+		if newPair.IsValid() {
+			if p.level == 0 {
+				return true
+			}
+			if len(pL.s) > 0 && len(pL.s) == 0 {
+				return false
+			} else if strings.Index(lVal.String(), "[") < 0 && strings.Index(rVal.String(), "[") < 0 {
+				// no more lists..
+				return true
+			} else {
+				nextPair := PacketPair{pL.s, pR.s, p.level + 1}
+				return nextPair.IsValid()
+			}
+		} else {
+			return false
+		}
+	}
+
+	if lVal.IsList() && rVal.IsNumber() {
+		pL.Next()
+		newPair := PacketPair{pL.s, pR.s, p.level}
+		return newPair.IsValid()
+	}
+
+	if lVal.IsNumber() && rVal.IsList() {
+		pR.Next()
+		newPair := PacketPair{pL.s, pR.s, p.level}
+		return newPair.IsValid()
+	}
+
+	if !pL.AnyRemain() {
+		return true
+	}
+	reason = "Shouldn't have got here?"
+	return false
+}
+
+func NewPacketParser(s string) *PacketParser {
+	return &PacketParser{o: s, s: s}
+}
+
+func (r *PacketParser) AnyRemain() bool {
+	return !(len(r.s) == 0)
+}
+
+func (r *PacketParser) Next() *PacketItem {
+	if len(r.s) == 0 {
+		return nil
+	}
+	if r.s == "[]" {
+		return nil
+	}
+	if r.s[0] == ',' {
+		// pop comma, try again
+		r.s = r.s[1:]
+		return r.Next()
+	}
+	if r.s[0] >= '0' && r.s[0] <= '9' {
+		parts := strings.Split(r.s, ",")
+		sv := strings.ReplaceAll(parts[0], "]", "")
+		r.s = r.s[len(sv):]
+		if len(r.s) > 0 && r.s[0] == ',' {
+			r.s = r.s[1:]
+		}
+		return &PacketItem{sv, Number}
+	}
+	var level, endIndex int
+	if r.s[0] == '[' {
+		// Unwrap list
+		for i, v := range r.s {
+			if i == 0 {
+				continue
+			}
+			if v == '[' {
+				level++
+				continue
+			}
+			if v == ']' {
+				if level == 0 {
+					endIndex = i
+					break
+				} else {
+					level--
+				}
+				continue
+			}
+		}
+	}
+	if len(r.s) == 0 {
+		return nil
+	}
+	if r.s == "[]" {
+		return &PacketItem{"[]", List}
+	}
+	return &PacketItem{r.s[1:endIndex], List}
+}
+
+func (v *PacketItem) IsList() bool {
+	return v.t == List
+}
+func (v *PacketItem) IsNumber() bool {
+	return v.t == Number
+}
+func (v *PacketItem) IntVal() int {
+	r, _ := strconv.Atoi(v.v)
+	return r
+}
+func (v *PacketItem) String() string {
+	return v.v
+}
+
+/**
+ * Might revisit...
+ */
+func (p PacketPair) IsValidFail() bool {
+	fmt.Printf("Compare %s vs %s\n", p.Left, p.Right)
 	if ItemsRemain(p.Left) && !ItemsRemain(p.Right) {
+		reason = "Out of items on the right"
 		return false
 	}
 	if len(p.Left) > 0 && len(p.Right) == 0 {
@@ -90,7 +254,7 @@ func (p PacketPair) IsValid() bool {
 		l = p.Left
 	}
 	if unwrapped {
-		n := PacketPair{l, r}
+		n := PacketPair{l, r, 0}
 		return n.IsValid()
 	}
 
@@ -112,7 +276,7 @@ func (p PacketPair) IsValid() bool {
 		return true
 	}
 
-	n := PacketPair{l, r}
+	n := PacketPair{l, r, 0}
 	return n.IsValid()
 }
 
