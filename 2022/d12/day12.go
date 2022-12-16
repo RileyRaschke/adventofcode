@@ -82,8 +82,19 @@ func main() {
 	runtime := time.Since(tStart)
 	fmt.Printf("%s\n", g)
 	fmt.Printf("Found %d paths\n", len(g.FoundPaths))
-	fmt.Printf("Part1: %d - %v\n", len(path)-1, path)
-	fmt.Printf("Total runtime: %v (excludes drawing)\n", runtime)
+	fmt.Printf("Part1: %d\n", len(path)-1)
+	fmt.Printf("Part1 runtime: %v (excludes final drawing)\n", runtime)
+	// elevation `b` only appears in the second colum,
+	// so be lazy and loop through the first 40 or so
+	tStart = time.Now()
+	for _, row := range g.Grid {
+		g.FindFrom(row[0])
+	}
+	runtime = time.Since(tStart)
+	fmt.Printf("%s\n", g)
+	fmt.Printf("Found %d paths\n", len(g.FoundPaths))
+	fmt.Printf("Part2: %d\n", len(g.ShortestPath)-1)
+	fmt.Printf("Part2 runtime: %v (excludes p1 and final drawing)\n", runtime)
 }
 
 func NewMapNode(x int, y int, z rune) *MapNode {
@@ -93,6 +104,14 @@ func NewMapNode(x int, y int, z rune) *MapNode {
 func (m *HeightMap) FindShortestPath() Path {
 	m.Frontiers = make(map[Cord][]Path)
 	m.ShortestPath = nil
+	m.CacheUtility()
+	m.FindPaths()
+	return m.ShortestPath
+}
+
+func (m *HeightMap) FindFrom(s *MapNode) Path {
+	m.StartPos = s
+	m.Frontiers = make(map[Cord][]Path)
 	m.CacheUtility()
 	m.FindPaths()
 	return m.ShortestPath
@@ -111,6 +130,8 @@ func (m *HeightMap) CacheUtility() {
 			} else {
 				n.Utility = m.CalcUtility(n)
 			}
+			n.Seen = false
+			n.Dead = false
 			n.Cost = math.MaxInt
 		}
 	}
