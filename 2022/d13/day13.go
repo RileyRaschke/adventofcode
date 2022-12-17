@@ -26,6 +26,7 @@ type PacketPair struct {
 }
 
 type PacketParser struct {
+	Depth     int    `json:"depth"`
 	Original  string `json:"original"`
 	prior     *PacketParser
 	Current   string `json:"current"`
@@ -112,9 +113,15 @@ func (p PacketPair) IsValid() bool {
 			return false
 		}
 		if lVal.IsNumber() && rVal.IsNumber() {
+			/*
+				if pL.Depth > pR.Depth {
+					log.Printf("%*s Left ran out of items\n", pad, "-")
+					return true
+				}
+			*/
 			intL := lVal.IntVal()
 			intR := rVal.IntVal()
-			log.Printf("%*s Compare %d vs %d\n", pad, "-", intL, intR)
+			log.Printf("%*s Int Compare %d vs %d\n", pad, "-", intL, intR)
 			if intL > intR {
 				log.Printf("%*s %d > %d\n", i*2, "-", intL, intR)
 				log.Printf("%*s Right side smaller\n", pad+2, "-")
@@ -128,11 +135,35 @@ func (p PacketPair) IsValid() bool {
 		}
 
 		if lVal.IsList() && rVal.IsList() {
-			log.Printf("%*s Compare %s vs %s\n", pad, "-", lVal, rVal)
+			log.Printf("%*s List Compare %s vs %s\n", pad, "-", lVal, rVal)
+			/*
+				if len(lVal.String()) >= 2 && lVal.String()[:2] == "[]" && pL.Depth == pR.Depth {
+					log.Printf("%*s Left ran out of items\n", pad, "-")
+					return true
+				}
+			*/
+			/*
+				if lVal.String() == "" && len(rVal.String()) > 0 {
+					log.Printf("%*s Left ran out of items\n", pad, "-")
+					return true
+				}
+			*/
+			/*
+				if lVal.String()[0] != '[' && rVal.String()[0] == '[' {
+					log.Printf("%*s Left ran out of items\n", pad, "-")
+					return true
+				}
+			*/
 			i++
 			continue
 		}
 		if lVal.IsList() && rVal.IsNumber() {
+			/*
+				if lVal.String() == "" {
+					log.Printf("%*s Left ran out of items\n", pad, "-")
+					return true
+				}
+			*/
 			i--
 			pR.Rollback()
 			continue
@@ -157,6 +188,7 @@ func (r *PacketParser) Next() *PacketItem {
 		return nil
 	}
 	if len(r.Current) == 0 && len(r.Remainder) > 0 {
+		r.Depth--
 		r.Current = r.Remainder
 		r.Remainder = ""
 	}
@@ -184,6 +216,7 @@ func (r *PacketParser) Next() *PacketItem {
 	}
 	var level, endIndex int
 	if r.Current[0] == '[' {
+		r.Depth++
 		// Unwrap list
 		for i, v := range r.Current {
 			if i == 0 {
@@ -248,7 +281,7 @@ func (v *PacketItem) IntVal() int {
 }
 
 func (r *PacketParser) Clone() *PacketParser {
-	return &PacketParser{r.Original, r.prior, r.Current, r.Remainder}
+	return &PacketParser{r.Depth, r.Original, r.prior, r.Current, r.Remainder}
 }
 
 func (v *PacketItem) IsList() bool {
