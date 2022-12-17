@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -25,6 +26,7 @@ type PacketPair struct {
 
 type PacketParser struct {
 	Original  string `json:"original"`
+	prior     *PacketParser
 	Current   string `json:"current"`
 	Remainder string `json:"remainder"`
 }
@@ -35,11 +37,15 @@ type PacketItem struct {
 }
 
 var (
-	pairs  []PacketPair = make([]PacketPair, 0)
-	reason string
+	pairs      []PacketPair = make([]PacketPair, 0)
+	PrintDebug bool         = false
 )
 
 func main() {
+
+	flag.BoolVar(&PrintDebug, "d", false, "Print debug info")
+	flag.Parse()
+
 	var i, validPackets int
 	reader := bufio.NewReader(os.Stdin)
 	p := PacketPair{}
@@ -80,11 +86,11 @@ func main() {
 func (p PacketPair) IsValid() bool {
 	fmt.Printf("- Compare %s vs %s\n", p.Left, p.Right)
 	var valid bool = true
-	var i int
+	var i int = 1
 	pL := NewPacketParser(p.Left)
 	pR := NewPacketParser(p.Right)
 	for {
-		i++
+		pad := i*2 - 1
 		//fmt.Printf("Loop %d\n", i)
 		/*
 			if i > 10 {
@@ -97,56 +103,54 @@ func (p PacketPair) IsValid() bool {
 		lVal := pL.Next()
 		rVal := pR.Next()
 
-		fmt.Printf("%*s Compare %s vs %s\n", i, "-", lVal, rVal)
+		//fmt.Printf("%*s Compare %s vs %s\n", pad, "-", lVal, rVal)
 
 		if lVal == nil {
-			fmt.Printf("%*s Left ran out of values\n", i, "-")
+			fmt.Printf("%*s Left ran out of items\n", pad, "-")
 			return true
 		}
 		if rVal == nil {
-			fmt.Printf("%*s Right ran out of items\n", i, "-")
+			fmt.Printf("%*s Right ran out of items\n", pad, "-")
 			return false
 		}
 		if lVal.IsNumber() && rVal.IsNumber() {
 			intL := lVal.IntVal()
 			intR := rVal.IntVal()
-			fmt.Printf("%*s Compare %d vs %d\n", i, "-", intL, intR)
+			fmt.Printf("%*s Compare %d vs %d\n", pad, "-", intL, intR)
 			if intL > intR {
-				fmt.Printf("%*s %d > %d\n", i, "-", intL, intR)
-				fmt.Printf("%*s Right side smaller\n", i+1, "-")
+				fmt.Printf("%*s %d > %d\n", i*2, "-", intL, intR)
+				fmt.Printf("%*s Right side smaller\n", pad+2, "-")
 				return false
 			}
 			if intL < intR {
-				fmt.Printf("%*s Early qualify!!!\n", i, "-")
+				fmt.Printf("%*s Left side smaller\n", pad+2, "-")
 				return true
 			}
-			//newPair := PacketPair{pL.s, pR.s, p.level}
-			//valid = newPair.IsValid()
 			continue
 		}
 
 		if lVal.IsList() && rVal.IsList() {
+			fmt.Printf("%*s Compare %s vs %s\n", pad, "-", lVal, rVal)
+			i++
 			continue
 		}
 		if lVal.IsList() && rVal.IsNumber() {
-			pL.Next()
-			fmt.Println("rewrapped right")
-			pR.Current = "[" + rVal.String() + "]"
+			i--
+			pR.Rollback()
 			continue
 		}
 
 		if lVal.IsNumber() && rVal.IsList() {
-			pR.Next()
-			fmt.Println("rewrapped left")
-			pL.Current = "[" + lVal.String() + "]"
+			i--
+			pL.Rollback()
 			continue
 		}
 
 		if !pL.AnyRemain() {
-			fmt.Println("%*s No items remain on left", i, "-")
+			fmt.Println("%*s No items remain on left", pad, "-")
 			return true
 		}
-		reason = "Shouldn't have got here?"
+		fmt.Println("Shouldn't have got here?")
 		return false
 	}
 }
@@ -160,15 +164,29 @@ func (r *PacketParser) AnyRemain() bool {
 }
 
 func (r *PacketParser) String() string {
-	s, err := json.MarshalIndent(*r, "", " ")
+	//s, err := json.MarshalIndent(r, "", " ")
+	s, err := json.Marshal(r)
 	if err != nil {
 		fmt.Println("Error marshaling parser values:", err)
 	}
 	return string(s)
 }
+func (r *PacketParser) Rollback() {
+	if PrintDebug {
+		fmt.Printf("RBP     %s\n", r)
+	}
+	r.Current = r.prior.Current
+	r.Remainder = r.prior.Remainder
+	r.prior = r.prior.prior
+	if PrintDebug {
+		fmt.Printf("RBA     %s\n", r)
+	}
+}
 
 func (r *PacketParser) Next() *PacketItem {
-	//fmt.Printf("%s\n", r)
+	if PrintDebug {
+		fmt.Printf("\t%s\n", r)
+	}
 	if len(r.Current) == 0 && len(r.Remainder) == 0 {
 		return nil
 	}
@@ -180,18 +198,23 @@ func (r *PacketParser) Next() *PacketItem {
 		return nil
 	}
 	if r.Current[0] == ',' {
-		// pop comma, try again
+		// remove comma, try again
 		r.Current = r.Current[1:]
 		return r.Next()
 	}
 	if r.Current[0] >= '0' && r.Current[0] <= '9' {
 		parts := strings.Split(r.Current, ",")
 		sv := strings.ReplaceAll(parts[0], "]", "")
+		r.prior = r.Clone()
 		r.Current = r.Current[len(sv):]
 		if len(r.Current) > 0 && r.Current[0] == ',' {
 			r.Current = r.Current[1:]
 		}
-		return &PacketItem{sv + "," + r.Current, Number}
+		if r.Current == "" {
+			return &PacketItem{sv, Number}
+		} else {
+			return &PacketItem{sv + "," + r.Current, Number}
+		}
 	}
 	var level, endIndex int
 	if r.Current[0] == '[' {
@@ -218,6 +241,7 @@ func (r *PacketParser) Next() *PacketItem {
 	if len(r.Current) == 0 {
 		return nil
 	}
+	r.prior = r.Clone()
 	if r.Current == "[]" {
 		return &PacketItem{"[]", List}
 	}
@@ -228,6 +252,10 @@ func (r *PacketParser) Next() *PacketItem {
 		r.Current = r.Current[1:endIndex]
 	}
 	return &PacketItem{r.Current, List}
+}
+
+func (r *PacketParser) Clone() *PacketParser {
+	return &PacketParser{r.Original, r.prior, r.Current, r.Remainder}
 }
 
 func (v *PacketItem) IsList() bool {
@@ -244,107 +272,4 @@ func (v *PacketItem) IntVal() int {
 }
 func (v *PacketItem) String() string {
 	return v.v
-}
-
-/**
- * Might revisit...
- */
-func (p PacketPair) IsValidFail() bool {
-	fmt.Printf("Compare %s vs %s\n", p.Left, p.Right)
-	if ItemsRemain(p.Left) && !ItemsRemain(p.Right) {
-		reason = "Out of items on the right"
-		return false
-	}
-	if len(p.Left) > 0 && len(p.Right) == 0 {
-		reason = "Right side ran out of items"
-		return false
-	}
-
-	if !ItemsRemain(p.Left) {
-		return true
-	}
-
-	var l, r string
-	var unwrapped bool = false
-	if p.Right[0] == '[' {
-		r = Unwrap(p.Right)
-		unwrapped = true
-	} else {
-		r = p.Right
-	}
-	if p.Left[0] == '[' {
-		l = Unwrap(p.Left)
-		unwrapped = true
-	} else {
-		l = p.Left
-	}
-	if unwrapped {
-		n := PacketPair{l, r, 0}
-		return n.IsValid()
-	}
-
-	tL := NextItem(p.Left, &l)
-	tR := NextItem(p.Right, &r)
-	if tL > tR {
-		reason = fmt.Sprintf("%d > %d", tL, tR)
-		return false
-	}
-
-	l = PruneItem(l)
-	r = PruneItem(r)
-
-	if ItemsRemain(l) && !ItemsRemain(r) {
-		return false
-	}
-
-	if !ItemsRemain(l) {
-		return true
-	}
-
-	n := PacketPair{l, r, 0}
-	return n.IsValid()
-}
-
-func Unwrap(s string) string {
-	x := s[1:]
-	x = x[:len(x)-1]
-	return x
-}
-
-func NextItem(s string, out *string) int {
-	if s[0] == ']' {
-		return -1
-	}
-	parts := strings.Split(s, ",")
-	sv := strings.ReplaceAll(parts[0], "]", "")
-	i, err := strconv.Atoi(sv)
-	if err != nil {
-		panic(err)
-	}
-	z := s[len(sv):]
-	*out = z
-	return i
-}
-
-func PruneItem(s string) string {
-	if len(s) == 0 {
-		return ""
-	}
-	switch s[0] {
-	case ',':
-		return PruneItem(s[1:])
-	case ']':
-		return PruneItem(s[1:])
-	default:
-		return s
-	}
-}
-
-func ItemsRemain(s string) bool {
-	for _, r := range s {
-		if r >= '0' && r <= '9' {
-			return true
-		}
-	}
-	return false
 }
