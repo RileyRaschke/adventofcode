@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -42,7 +43,7 @@ var (
 )
 
 func main() {
-
+	log.SetFlags(0)
 	flag.BoolVar(&PrintDebug, "d", false, "Print debug info")
 	flag.Parse()
 
@@ -52,6 +53,7 @@ func main() {
 	for {
 		str, _, err := reader.ReadLine()
 		if err == io.EOF {
+			pairs = append(pairs, p)
 			break
 		}
 		line := strings.TrimSpace(string(str))
@@ -68,19 +70,19 @@ func main() {
 		}
 		i++
 	}
-	pairs = append(pairs, p)
 
 	for i, p := range pairs {
-		fmt.Printf("== Pair %d ==\n", i+1)
+		log.Printf("== Pair %d ==\n", i+1)
 		if p.IsValid() {
 			validPackets += (i + 1)
-			fmt.Println("Y\n")
+			log.Println("Y\n")
 		} else {
-			fmt.Println("N\n")
+			fmt.Printf("%s\n%s\n\n", p.Left, p.Right)
+			log.Println("N\n")
 		}
 	}
 
-	fmt.Printf("Part1: %d\n", validPackets)
+	log.Printf("Part1: %d\n", validPackets)
 }
 
 func NewPacketParser(s string) *PacketParser {
@@ -88,7 +90,7 @@ func NewPacketParser(s string) *PacketParser {
 }
 
 func (p PacketPair) IsValid() bool {
-	fmt.Printf("- Compare %s vs %s\n", p.Left, p.Right)
+	log.Printf("- Compare %s vs %s\n", p.Left, p.Right)
 	var valid bool = true
 	var i int = 1
 	pL := NewPacketParser(p.Left)
@@ -102,31 +104,31 @@ func (p PacketPair) IsValid() bool {
 		rVal := pR.Next()
 
 		if lVal == nil {
-			fmt.Printf("%*s Left ran out of items\n", pad, "-")
+			log.Printf("%*s Left ran out of items\n", pad, "-")
 			return true
 		}
 		if rVal == nil {
-			fmt.Printf("%*s Right ran out of items\n", pad, "-")
+			log.Printf("%*s Right ran out of items\n", pad, "-")
 			return false
 		}
 		if lVal.IsNumber() && rVal.IsNumber() {
 			intL := lVal.IntVal()
 			intR := rVal.IntVal()
-			fmt.Printf("%*s Compare %d vs %d\n", pad, "-", intL, intR)
+			log.Printf("%*s Compare %d vs %d\n", pad, "-", intL, intR)
 			if intL > intR {
-				fmt.Printf("%*s %d > %d\n", i*2, "-", intL, intR)
-				fmt.Printf("%*s Right side smaller\n", pad+2, "-")
+				log.Printf("%*s %d > %d\n", i*2, "-", intL, intR)
+				log.Printf("%*s Right side smaller\n", pad+2, "-")
 				return false
 			}
 			if intL < intR {
-				fmt.Printf("%*s Left side smaller\n", pad+2, "-")
+				log.Printf("%*s Left side smaller\n", pad+2, "-")
 				return true
 			}
 			continue
 		}
 
 		if lVal.IsList() && rVal.IsList() {
-			fmt.Printf("%*s Compare %s vs %s\n", pad, "-", lVal, rVal)
+			log.Printf("%*s Compare %s vs %s\n", pad, "-", lVal, rVal)
 			i++
 			continue
 		}
@@ -142,14 +144,14 @@ func (p PacketPair) IsValid() bool {
 			continue
 		}
 
-		fmt.Println("Shouldn't have got here?")
+		log.Println("Shouldn't have got here?")
 		return false
 	}
 }
 
 func (r *PacketParser) Next() *PacketItem {
 	if PrintDebug {
-		fmt.Printf("\t%s\n", r)
+		log.Printf("\t%s\n", r)
 	}
 	if len(r.Current) == 0 && len(r.Remainder) == 0 {
 		return nil
@@ -220,20 +222,20 @@ func (r *PacketParser) Next() *PacketItem {
 
 func (r *PacketParser) Rollback() {
 	if PrintDebug {
-		fmt.Printf("RBP     %s\n", r)
+		log.Printf("RBP     %s\n", r)
 	}
 	r.Current = r.prior.Current
 	r.Remainder = r.prior.Remainder
 	r.prior = r.prior.prior
 	if PrintDebug {
-		fmt.Printf("RBA     %s\n", r)
+		log.Printf("RBA     %s\n", r)
 	}
 }
 
 func (r *PacketParser) String() string {
 	s, err := json.Marshal(r)
 	if err != nil {
-		fmt.Println("Error marshaling parser values:", err)
+		log.Println("Error marshaling parser values:", err)
 	}
 	return string(s)
 }
