@@ -83,6 +83,10 @@ func main() {
 	fmt.Printf("Part1: %d\n", validPackets)
 }
 
+func NewPacketParser(s string) *PacketParser {
+	return &PacketParser{Original: s, prior: nil, Current: s, Remainder: ""}
+}
+
 func (p PacketPair) IsValid() bool {
 	fmt.Printf("- Compare %s vs %s\n", p.Left, p.Right)
 	var valid bool = true
@@ -91,19 +95,11 @@ func (p PacketPair) IsValid() bool {
 	pR := NewPacketParser(p.Right)
 	for {
 		pad := i*2 - 1
-		//fmt.Printf("Loop %d\n", i)
-		/*
-			if i > 10 {
-				panic("too much")
-			}
-		*/
 		if !valid {
 			return false
 		}
 		lVal := pL.Next()
 		rVal := pR.Next()
-
-		//fmt.Printf("%*s Compare %s vs %s\n", pad, "-", lVal, rVal)
 
 		if lVal == nil {
 			fmt.Printf("%*s Left ran out of items\n", pad, "-")
@@ -146,40 +142,8 @@ func (p PacketPair) IsValid() bool {
 			continue
 		}
 
-		if !pL.AnyRemain() {
-			fmt.Println("%*s No items remain on left", pad, "-")
-			return true
-		}
 		fmt.Println("Shouldn't have got here?")
 		return false
-	}
-}
-
-func NewPacketParser(s string) *PacketParser {
-	return &PacketParser{Original: s, Current: s, Remainder: ""}
-}
-
-func (r *PacketParser) AnyRemain() bool {
-	return !(len(r.Current) == 0)
-}
-
-func (r *PacketParser) String() string {
-	//s, err := json.MarshalIndent(r, "", " ")
-	s, err := json.Marshal(r)
-	if err != nil {
-		fmt.Println("Error marshaling parser values:", err)
-	}
-	return string(s)
-}
-func (r *PacketParser) Rollback() {
-	if PrintDebug {
-		fmt.Printf("RBP     %s\n", r)
-	}
-	r.Current = r.prior.Current
-	r.Remainder = r.prior.Remainder
-	r.prior = r.prior.prior
-	if PrintDebug {
-		fmt.Printf("RBA     %s\n", r)
 	}
 }
 
@@ -254,6 +218,33 @@ func (r *PacketParser) Next() *PacketItem {
 	return &PacketItem{r.Current, List}
 }
 
+func (r *PacketParser) Rollback() {
+	if PrintDebug {
+		fmt.Printf("RBP     %s\n", r)
+	}
+	r.Current = r.prior.Current
+	r.Remainder = r.prior.Remainder
+	r.prior = r.prior.prior
+	if PrintDebug {
+		fmt.Printf("RBA     %s\n", r)
+	}
+}
+
+func (r *PacketParser) String() string {
+	s, err := json.Marshal(r)
+	if err != nil {
+		fmt.Println("Error marshaling parser values:", err)
+	}
+	return string(s)
+}
+
+func (v *PacketItem) IntVal() int {
+	parts := strings.Split(v.v, ",")
+	sv := strings.ReplaceAll(parts[0], "]", "")
+	r, _ := strconv.Atoi(sv)
+	return r
+}
+
 func (r *PacketParser) Clone() *PacketParser {
 	return &PacketParser{r.Original, r.prior, r.Current, r.Remainder}
 }
@@ -261,15 +252,11 @@ func (r *PacketParser) Clone() *PacketParser {
 func (v *PacketItem) IsList() bool {
 	return v.t == List
 }
+
 func (v *PacketItem) IsNumber() bool {
 	return v.t == Number
 }
-func (v *PacketItem) IntVal() int {
-	parts := strings.Split(v.v, ",")
-	sv := strings.ReplaceAll(parts[0], "]", "")
-	r, _ := strconv.Atoi(sv)
-	return r
-}
+
 func (v *PacketItem) String() string {
 	return v.v
 }
